@@ -1,0 +1,332 @@
+#include "doctest/doctest.h"
+
+#include "test_common_api.h"
+
+#include <array>
+
+// Covers the main zecs views on populated and empty worlds:
+// component views, group views, stale views, mutation during traversal and membership cleanup.
+TEST_CASE("view_api")
+{
+    test::ViewWorldFixture fx;
+
+    SUBCASE("views over missing pools and deques behave as empty ranges")
+    {
+        // This block mirrors the invalid-view coverage from entt. The goal is to
+        // lock in that zecs returns harmless empty ranges when the corresponding
+        // pool or event deque has never been created.
+        zecs::World world("empty-views");
+        const zecs::TickContext ctx(world.tick_get());
+
+        CHECK(test::collect_pools(world.view_pools()).empty());
+        CHECK(test::collect_entities(world.view_comps<test::Position>()).empty());
+        CHECK(test::collect_entities(world.view_comps(zecs::globalUid<test::Position>)).empty());
+        CHECK(test::collect_entities(world.view_comp_group<test::Position, test::Velocity>()).empty());
+        {
+            const std::array<zecs::GUid, 2> guids = {
+                zecs::globalUid<test::Position>,
+                zecs::globalUid<test::Velocity>,
+            };
+            CHECK(test::collect_entities(world.view_comp_group(guids.data(), guids.size())).empty());
+        }
+        CHECK(test::collect_entities(world.view_patched_comps<test::Position>(ctx)).empty());
+        CHECK(test::collect_entities(world.view_patched_comps(zecs::globalUid<test::Position>, ctx)).empty());
+        CHECK(world.view_events<test::DamageEvent>(ctx).empty());
+    }
+
+    SUBCASE("views captured before pool creation stay stale while fresh views see new pools")
+    {
+        // Unlike entt registry views, zecs views are thin wrappers around the pool
+        // pointer available at construction time. Capturing a view before the pool
+        // exists should therefore remain empty, while a freshly requested view
+        // should immediately observe the newly created pool.
+        zecs::World world("stale-view");
+        const zecs::Entity entity = world.entity_add();
+
+        auto stale_typed = world.view_comps<test::Position>();
+        auto stale_runtime = world.view_comps(zecs::globalUid<test::Position>);
+
+        CHECK(test::collect_entities(stale_typed).empty());
+        CHECK(test::collect_entities(stale_runtime).empty());
+
+        REQUIRE(world.comp_add<test::Position>(entity, 4, 8) != nullptr);
+
+        CHECK(test::collect_entities(stale_typed).empty());
+        CHECK(test::collect_entities(stale_runtime).empty());
+
+        const auto fresh_typed = test::collect_entities(world.view_comps<test::Position>());
+        const auto fresh_runtime = test::collect_entities(world.view_comps(zecs::globalUid<test::Position>));
+
+        REQUIRE(fresh_typed.size() == 1);
+        CHECK(fresh_typed[0] == entity);
+        CHECK(fresh_runtime == fresh_typed);
+    }
+
+    SUBCASE("view_comps iterates entities that own a component")
+    {
+        const auto entities = test::collect_entities(fx.world.view_comps<test::Position>());
+
+        REQUIRE(entities.size() == 5);
+        CHECK(entities[0] == fx.position_only);
+        CHECK(entities[1] == fx.in_group_a);
+        CHECK(entities[2] == fx.in_group_b);
+        CHECK(entities[3] == fx.patch_first);
+        CHECK(entities[4] == fx.patch_second);
+    }
+
+    SUBCASE("view_comps runtime guid overload matches typed view")
+    {
+        const auto typed_entities = test::collect_entities(fx.world.view_comps<test::Position>());
+        const auto runtime_entities = test::collect_entities(fx.world.view_comps(zecs::globalUid<test::Position>));
+
+        CHECK(runtime_entities == typed_entities);
+    }
+
+    SUBCASE("view_entities supports removing current entity during traversal")
+    {
+        std::vector<zecs::Entity> visited;
+
+        for (zecs::Entity entity : fx.world.view_entities())
+        {
+            visited.push_back(entity);
+
+            if (entity != fx.world.root())
+                fx.world.entity_remove(entity);
+        }
+
+        REQUIRE(visited.size() == 8);
+        CHECK(visited[0] == fx.world.root());
+        CHECK(visited[1] == fx.position_only);
+        CHECK(visited[2] == fx.in_group_a);
+        CHECK(visited[3] == fx.in_group_b);
+        CHECK(visited[4] == fx.velocity_only);
+        CHECK(visited[5] == fx.tag_only);
+        CHECK(visited[6] == fx.patch_first);
+        CHECK(visited[7] == fx.patch_second);
+
+        const auto remaining = test::collect_entities(fx.world.view_entities());
+        REQUIRE(remaining.size() == 1);
+        CHECK(remaining[0] == fx.world.root());
+    }
+
+    SUBCASE("view_comps supports removing current component during traversal")
+    {
+        std::vector<zecs::Entity> visited;
+
+        for (zecs::Entity entity : fx.world.view_comps<test::Position>())
+        {
+            visited.push_back(entity);
+            CHECK(fx.world.comp_remove<test::Position>(entity));
+        }
+
+        REQUIRE(visited.size() == 5);
+        CHECK(visited[0] == fx.position_only);
+        CHECK(visited[1] == fx.in_group_a);
+        CHECK(visited[2] == fx.in_group_b);
+        CHECK(visited[3] == fx.patch_first);
+        CHECK(visited[4] == fx.patch_second);
+        CHECK(test::collect_entities(fx.world.view_comps<test::Position>()).empty());
+    }
+
+    SUBCASE("view_comps skips future entity removed from the same view mid pass")
+    {
+        std::vector<zecs::Entity> visited;
+        bool removed_future = false;
+
+        for (zecs::Entity entity : fx.world.view_comps<test::Position>())
+        {
+            visited.push_back(entity);
+
+            if (!removed_future)
+            {
+                fx.world.entity_remove(fx.patch_first);
+                removed_future = true;
+            }
+        }
+
+        REQUIRE(visited.size() == 4);
+        CHECK(visited[0] == fx.position_only);
+        CHECK(visited[1] == fx.in_group_a);
+        CHECK(visited[2] == fx.in_group_b);
+        CHECK(visited[3] == fx.patch_second);
+        CHECK(fx.world.comp_get<test::Position>(fx.patch_first) == nullptr);
+    }
+
+    SUBCASE("view_comp_group returns intersection of component sets")
+    {
+        const auto entities = test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>());
+
+        REQUIRE(entities.size() == 2);
+        CHECK(entities[0] == fx.in_group_a);
+        CHECK(entities[1] == fx.in_group_b);
+    }
+
+    SUBCASE("view_comp_group is empty when pools exist but do not overlap")
+    {
+        auto view = fx.world.view_comp_group<test::Velocity, test::Tag>();
+        CHECK(view.empty());
+        CHECK(test::collect_entities(view).empty());
+    }
+
+    SUBCASE("view_comp_group runtime guid overload matches typed group view")
+    {
+        const std::array<zecs::GUid, 2> guids = {
+            zecs::globalUid<test::Position>,
+            zecs::globalUid<test::Velocity>,
+        };
+
+        const auto typed_entities = test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>());
+        const auto runtime_entities = test::collect_entities(fx.world.view_comp_group(guids.data(), guids.size()));
+
+        CHECK(runtime_entities == typed_entities);
+    }
+
+    SUBCASE("group view handles empty tags mixed with regular components")
+    {
+        // Empty marker components often take a separate code path in ECS storage.
+        // This verifies that intersection logic stays correct when one side of the
+        // group is a tag-only component.
+        const zecs::Entity tagged_position = fx.world.entity_add();
+        REQUIRE(fx.world.comp_add<test::Position>(tagged_position, 9, 9) != nullptr);
+        REQUIRE(fx.world.comp_add<test::Tag>(tagged_position) != nullptr);
+
+        const auto entities = test::collect_entities(fx.world.view_comp_group<test::Position, test::Tag>());
+
+        REQUIRE(entities.size() == 1);
+        CHECK(entities[0] == tagged_position);
+    }
+
+    SUBCASE("view_comp_group supports removing current entity during traversal")
+    {
+        std::vector<zecs::Entity> visited;
+
+        for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
+        {
+            visited.push_back(entity);
+            fx.world.entity_remove(entity);
+        }
+
+        REQUIRE(visited.size() == 2);
+        CHECK(visited[0] == fx.in_group_a);
+        CHECK(visited[1] == fx.in_group_b);
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).empty());
+    }
+
+    SUBCASE("runtime group view supports removing current entity during traversal")
+    {
+        const std::array<zecs::GUid, 2> guids = {
+            zecs::globalUid<test::Position>,
+            zecs::globalUid<test::Velocity>,
+        };
+
+        std::vector<zecs::Entity> visited;
+
+        for (zecs::Entity entity : fx.world.view_comp_group(guids.data(), guids.size()))
+        {
+            visited.push_back(entity);
+            fx.world.entity_remove(entity);
+        }
+
+        REQUIRE(visited.size() == 2);
+        CHECK(visited[0] == fx.in_group_a);
+        CHECK(visited[1] == fx.in_group_b);
+        CHECK(test::collect_entities(fx.world.view_comp_group(guids.data(), guids.size())).empty());
+    }
+
+    SUBCASE("view_comp_group supports removing current component during traversal")
+    {
+        std::vector<zecs::Entity> visited;
+
+        for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
+        {
+            visited.push_back(entity);
+            CHECK(fx.world.comp_remove<test::Velocity>(entity));
+        }
+
+        REQUIRE(visited.size() == 2);
+        CHECK(visited[0] == fx.in_group_a);
+        CHECK(visited[1] == fx.in_group_b);
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).empty());
+    }
+
+    SUBCASE("view_comp_group skips future entity removed during traversal")
+    {
+        std::vector<zecs::Entity> visited;
+        bool removed_future = false;
+
+        for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
+        {
+            visited.push_back(entity);
+
+            if (!removed_future)
+            {
+                fx.world.entity_remove(fx.in_group_b);
+                removed_future = true;
+            }
+        }
+
+        REQUIRE(visited.size() == 1);
+        CHECK(visited[0] == fx.in_group_a);
+        CHECK_FALSE(fx.world.entity_is_valid(fx.in_group_b));
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).size() == 1);
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>())[0] == fx.in_group_a);
+    }
+
+    SUBCASE("view_comp_group skips future component removed during traversal")
+    {
+        std::vector<zecs::Entity> visited;
+        bool removed_future = false;
+
+        for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
+        {
+            visited.push_back(entity);
+
+            if (!removed_future)
+            {
+                CHECK(fx.world.comp_remove<test::Velocity>(fx.in_group_b));
+                removed_future = true;
+            }
+        }
+
+        REQUIRE(visited.size() == 1);
+        CHECK(visited[0] == fx.in_group_a);
+        CHECK(fx.world.comp_get<test::Velocity>(fx.in_group_b) == nullptr);
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).size() == 1);
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>())[0] == fx.in_group_a);
+    }
+
+    SUBCASE("views rebuild membership correctly after remove re-add and entity replacement")
+    {
+        // This is the closest zecs analogue to entt's clean view/group tests.
+        // The intent is to ensure that intersection membership is not cached
+        // incorrectly across remove, re-add and full entity replacement.
+        zecs::World world("clean-membership");
+        const zecs::Entity original = world.entity_add();
+
+        REQUIRE(world.comp_add<test::Position>(original, 1, 1) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(original, 2, 2) != nullptr);
+
+        auto group_entities = test::collect_entities(world.view_comp_group<test::Position, test::Velocity>());
+        REQUIRE(group_entities.size() == 1);
+        CHECK(group_entities[0] == original);
+
+        CHECK(world.comp_remove<test::Velocity>(original));
+        CHECK(test::collect_entities(world.view_comp_group<test::Position, test::Velocity>()).empty());
+
+        REQUIRE(world.comp_add<test::Velocity>(original, 3, 3) != nullptr);
+        group_entities = test::collect_entities(world.view_comp_group<test::Position, test::Velocity>());
+        REQUIRE(group_entities.size() == 1);
+        CHECK(group_entities[0] == original);
+
+        world.entity_remove(original);
+        CHECK(test::collect_entities(world.view_comp_group<test::Position, test::Velocity>()).empty());
+
+        const zecs::Entity replacement = world.entity_add();
+        REQUIRE(world.comp_add<test::Position>(replacement, 4, 4) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(replacement, 5, 5) != nullptr);
+
+        group_entities = test::collect_entities(world.view_comp_group<test::Position, test::Velocity>());
+        REQUIRE(group_entities.size() == 1);
+        CHECK(group_entities[0] == replacement);
+    }
+}

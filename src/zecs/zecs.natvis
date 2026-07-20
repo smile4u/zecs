@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+<Type Name="zecs::StringId">
+	<DisplayString>id {_str, s}</DisplayString>
+</Type>
+
+<Type Name="zecs::Entity">
+	<DisplayString>aaa</DisplayString>
+</Type>
+
+<Type Name="std::unique_ptr&lt;zecs::IDbgPtr, *&gt;">
+	<Expand HideRawView="true">
+		<ExpandedItem>_Mypair._Myval2</ExpandedItem>
+	</Expand>
+</Type>
+
+<Type Name="zecs::DbgPtr&lt;*&gt;">
+	<Intrinsic Name="name" Expression="&quot;$T1&quot;" Category="Property"/>
+	<Expand>
+		<Item Name="type">name()</Item>
+		<Item Name="ptr">($T1*) ptr</Item>
+	</Expand>
+</Type>
+
+<Type Name="std::pair&lt;*, std::unique_ptr&lt;zecs::IDbgPtr, *&gt;&gt;">
+	<Expand HideRawView="true">
+		<ExpandedItem>second</ExpandedItem>
+	</Expand>
+</Type>
+	
+
+</AutoVisualizer>

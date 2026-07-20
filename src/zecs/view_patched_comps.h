@@ -1,0 +1,21 @@
+#pragma once
+
+#include "zecs/comp_pool_base.h"
+#include "zecs/types.h"
+
+namespace zecs
+{
+struct ViewPatchedComps
+{
+    using It = CompPool2Base::PatchIt;
+
+    inline ViewPatchedComps(CompPool2Base* pool_, GTick since_) :  pool(pool_), since(since_) { }
+    inline bool empty() const { return (pool) ? pool->patch_empty(since) : true; }
+    inline It begin() { return (pool) ? pool->patches_begin(since) : It(LLIndex_INVALID); }
+    inline It end() { return (pool) ? pool->patches_end() : It(LLIndex_INVALID); }
+
+protected:
+    GTick since;
+    CompPool2Base* pool;
+};
+} //namespace zecs

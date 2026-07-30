@@ -24,7 +24,7 @@ Entity World::entity_add()
 {
     Entity e = Entity_INVALID;
 
-    if (entity_free_index != LLIndex_INVALID)
+    if (entity_free_index != EntityBase_INVALID)
     {
         assert(false); // TODO: implement
     }

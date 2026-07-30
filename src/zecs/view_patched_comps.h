@@ -11,8 +11,8 @@ struct ViewPatchedComps
 
     inline ViewPatchedComps(CompPool2Base* pool_, GTick since_) :  pool(pool_), since(since_) { }
     inline bool empty() const { return (pool) ? pool->patch_empty(since) : true; }
-    inline It begin() { return (pool) ? pool->patches_begin(since) : It(LLIndex_INVALID); }
-    inline It end() { return (pool) ? pool->patches_end() : It(LLIndex_INVALID); }
+    inline It begin() { return (pool) ? pool->patches_begin(since) : It(DIndex_NONE); }
+    inline It end() { return (pool) ? pool->patches_end() : It(DIndex_NONE); }
 
 protected:
     GTick since;

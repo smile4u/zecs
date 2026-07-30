@@ -30,7 +30,7 @@ struct CompPool2 : public CompPool2Base
     {
         if constexpr (!std::is_empty_v<T>)
         {
-            for (LLIndex di = 0; di < dense.size(); ++di)
+            for (DIndex di = 0; di < dense.size(); ++di)
             {
                 if (dense[di] != Entity_INVALID)
                     comp_slot(di)->~T();
@@ -73,14 +73,8 @@ struct CompPool2 : public CompPool2Base
 
     inline T* get(Entity e) const noexcept
     {
-        const LLIndex di = dense_index_get(e);
-        if (di == LLIndex_INVALID)
-            return nullptr;
-
-        if constexpr (std::is_empty_v<T>)
-            return reinterpret_cast<T*>(const_cast<CompPool2*>(this));
-        else
-            return comp_slot(di);
+        const DIndex di = dense_index_get(e);
+        return static_cast<T*>(dense_info[di].comp);
     }
 
     template<typename... Args>
@@ -90,7 +84,7 @@ struct CompPool2 : public CompPool2Base
 
         if constexpr (std::is_default_constructible_v<T> || sizeof...(Args) > 0)
         {
-            const LLIndex di = dense_add(e);
+            const DIndex di = dense_add(e);
 
             T* comp;
             if constexpr (std::is_empty_v<T>)
@@ -102,6 +96,8 @@ struct CompPool2 : public CompPool2Base
                 comp = ::new (comp_slot_ensure(di)) T(std::forward<Args>(args)...);
             }
 
+            dense[di] = e;
+            dense_info[di].comp = comp;
             dense_patch(di, tick);
 
             on_added.Emit(*world, e);
@@ -128,14 +124,16 @@ struct CompPool2 : public CompPool2Base
 
     inline bool remove(Entity e) noexcept
     {
-        const LLIndex di = dense_index_get(e);
-        if (di == LLIndex_INVALID)
+        const DIndex di = dense_index_get(e);
+        if (di == DIndex_NONE)
             return false;
 
         on_removed.Emit(*world, e);
 
         if constexpr (!std::is_empty_v<T>)
             comp_slot(di)->~T();
+
+        dense_info[di].comp = nullptr;
 
         dense_rem(di);
         return true;
@@ -175,13 +173,13 @@ private:
 
     // Returns the slot for an existing dense index. The page is guaranteed to
     // exist because comp_slot_ensure() is called for every live di on add().
-    inline T* comp_slot(LLIndex di) const noexcept
+    inline T* comp_slot(DIndex di) const noexcept
     {
         return &pages[di >> PAGE_BITS][di & PAGE_MASK];
     }
 
     // Allocates the page covering di if needed and returns the raw slot.
-    inline void* comp_slot_ensure(LLIndex di) noexcept
+    inline void* comp_slot_ensure(DIndex di) noexcept
     {
         const size_t pi = di >> PAGE_BITS;
         while (pages.size() <= pi)

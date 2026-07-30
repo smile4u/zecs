@@ -200,7 +200,10 @@ private:
     EventDequesPacked event_deques_packed;
 
     Entity entities_root = Entity_INVALID;
-    LLIndex entity_free_index = LLIndex_INVALID;
+    // Free-list link into `entities`, not a component-pool dense index: entity 0
+    // (the world root) is a real, valid entity, so this can't reuse DIndex_NONE (0)
+    // as its "no free slot" sentinel the way pool dense indices do.
+    EntityBase entity_free_index = EntityBase_INVALID;
 
     std::string name;
     GTick tick = 0;

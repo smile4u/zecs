@@ -20,29 +20,30 @@ struct CompPool2Base
 {
     struct Node
     {
+        void* comp = nullptr;
         GTick tick = GTick_INVALID;
-        LLIndex next = LLIndex_INVALID;
-        LLIndex prev = LLIndex_INVALID;
+        DIndex next = DIndex_NONE;
+        DIndex prev = DIndex_NONE;
     };
 
     using Dense = std::vector<Entity>;
     using DenseInfo = std::vector<Node>;
-    using Sparse = std::vector<LLIndex>;
+    using Sparse = std::vector<DIndex>;
 
     struct EntityIt
     {
-        inline EntityIt(LLIndex index_) noexcept
+        inline EntityIt(DIndex index_) noexcept
             : index(index_)
             , dense(nullptr)
             , dense_size(0)
         { }
 
-        inline EntityIt(LLIndex index_, const Dense* dense_) noexcept
+        inline EntityIt(DIndex index_, const Dense* dense_) noexcept
             : index(index_)
             , dense(dense_)
-            , dense_size(static_cast<LLIndex>(dense_->size()))
+            , dense_size(static_cast<DIndex>(dense_->size()))
         {
-            next_matched(); 
+            next_matched();
         }
 
         inline bool operator==(const EntityIt& other) const noexcept { return index == other.index; }
@@ -55,22 +56,22 @@ struct CompPool2Base
         {
             while (index < dense_size && dense->operator[](index) == Entity_INVALID) index++;
         }
-        
-        LLIndex index;
-        LLIndex dense_size;
+
+        DIndex index;
+        DIndex dense_size;
         const Dense* dense;
     };
 
     struct PatchIt
     {
-        inline PatchIt(LLIndex head_) noexcept 
+        inline PatchIt(DIndex head_) noexcept
             : head(head_)
             , since(0)
             , dense(nullptr)
             , dense_info(nullptr)
         { }
 
-        inline PatchIt(LLIndex head_, GTick since_, const Dense* dense_, const DenseInfo* dense_info_) noexcept 
+        inline PatchIt(DIndex head_, GTick since_, const Dense* dense_, const DenseInfo* dense_info_) noexcept
             : head(head_)
             , since(since_)
             , dense(dense_)
@@ -88,7 +89,7 @@ struct CompPool2Base
     private:
         inline void next_matched() noexcept
         {
-            if (head != LLIndex_INVALID)
+            if (head != DIndex_NONE)
             {
                 head = (*dense_info)[head].next;
                 validate();
@@ -97,20 +98,20 @@ struct CompPool2Base
 
         inline void validate() noexcept
         {
-            if (head != LLIndex_INVALID)
+            if (head != DIndex_NONE)
             {
                 if ((*dense_info)[head].tick < since)
-                    head = LLIndex_INVALID;
+                    head = DIndex_NONE;
             }
         }
 
         GTick since;
-        LLIndex head;
+        DIndex head;
         const Dense* dense;
         const DenseInfo* dense_info;
     };
- 
-    CompPool2Base() = default;
+
+    ZECS_EXPORT CompPool2Base();
     virtual ~CompPool2Base() = default;
 
     constexpr bool empty() const noexcept;
@@ -128,11 +129,11 @@ struct CompPool2Base
     virtual bool raw_remove(Entity e) = 0;
 
     inline EntityIt entities_begin() const noexcept { return EntityIt(0, &dense); }
-    inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<LLIndex>(dense.size())); }
+    inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
 
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &dense_info); }
-    inline PatchIt patches_end() const noexcept { return PatchIt(LLIndex_INVALID); }
-    inline bool patch_empty(GTick since) const noexcept { return (patch_head != LLIndex_INVALID) ? dense_info[patch_head].tick < since : true; }
+    inline PatchIt patches_end() const noexcept { return PatchIt(DIndex_NONE); }
+    inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? dense_info[patch_head].tick < since : true; }
 
     CompPool2Signal on_added;
     CompPool2Signal on_removed;
@@ -141,15 +142,20 @@ struct CompPool2Base
 protected:
     friend struct World;
 
-    constexpr LLIndex sparse_index_get(Entity e) const noexcept;
-    constexpr LLIndex dense_index_get(Entity e) const noexcept;
+    constexpr DIndex sparse_index_get(Entity e) const noexcept;
+    constexpr DIndex dense_index_get(Entity e) const noexcept;
 
-    ZECS_EXPORT LLIndex dense_add(Entity e) noexcept;
-    ZECS_EXPORT void dense_rem(LLIndex index) noexcept;
-    ZECS_EXPORT void dense_patch(LLIndex index, GTick tick) noexcept;
+    ZECS_EXPORT DIndex dense_add(Entity e) noexcept;
+    ZECS_EXPORT void dense_rem(DIndex index) noexcept;
+    ZECS_EXPORT void dense_patch(DIndex index, GTick tick) noexcept;
 
     World* world = nullptr;
 
+    // dense/dense_info slot 0 is a permanent guard: dense[0] == Entity_INVALID
+    // and dense_info[0].comp == nullptr forever, never handed out by dense_add().
+    // This lets sparse/free_head/patch_head/Node::next/prev use plain 0 as their
+    // "no value" sentinel, and lets get()/patch() index dense_info[di] unconditionally
+    // without a validity branch.
     Dense dense;
     DenseInfo dense_info;
     size_t dense_count = 0;
@@ -158,24 +164,24 @@ protected:
     Sparse sparse;
     size_t sparse_size = 0;
 
-    LLIndex free_head = LLIndex_INVALID;
-    LLIndex patch_head = LLIndex_INVALID;
+    DIndex free_head = DIndex_NONE;
+    DIndex patch_head = DIndex_NONE;
 };
 
 constexpr bool CompPool2Base::empty() const noexcept
-{ 
-    return dense_count == 0; 
+{
+    return dense_count == 0;
 }
 
 constexpr size_t CompPool2Base::size() const noexcept
-{ 
-    return dense_count; 
+{
+    return dense_count;
 }
 
 inline void CompPool2Base::patch(Entity e, GTick tick) noexcept
 {
-    const LLIndex di = dense_index_get(e);
-    if (di == LLIndex_INVALID)
+    const DIndex di = dense_index_get(e);
+    if (!dense_info[di].comp)
         return;
 
     dense_patch(di, tick);
@@ -184,24 +190,24 @@ inline void CompPool2Base::patch(Entity e, GTick tick) noexcept
 
 inline GTick CompPool2Base::patch_get(Entity e) const noexcept
 {
-    const LLIndex di = dense_index_get(e);
-    return (di != LLIndex_INVALID) ? dense_info[di].tick : GTick_INVALID;
+    const DIndex di = dense_index_get(e);
+    return dense_info[di].tick;
 }
 
 constexpr bool CompPool2Base::contains(Entity e) const noexcept
 {
-    return (dense_index_get(e) != LLIndex_INVALID);
+    return (dense_index_get(e) != DIndex_NONE);
 }
 
-constexpr LLIndex CompPool2Base::sparse_index_get(Entity e) const noexcept
-{ 
-    return static_cast<LLIndex>(e);
+constexpr DIndex CompPool2Base::sparse_index_get(Entity e) const noexcept
+{
+    return static_cast<DIndex>(e);
 }
 
-constexpr LLIndex CompPool2Base::dense_index_get(Entity e) const noexcept
-{ 
-    const LLIndex si = sparse_index_get(e);
-    return (si < sparse_size) ? sparse[si] : LLIndex_INVALID;
+constexpr DIndex CompPool2Base::dense_index_get(Entity e) const noexcept
+{
+    const DIndex si = sparse_index_get(e);
+    return (si < sparse_size) ? sparse[si] : DIndex_NONE;
 };
 
 } // namespace zecs

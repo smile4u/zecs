@@ -16,7 +16,7 @@ using EntityBase = uint32_t;
 enum class Entity : EntityBase;
 
 using GTick = uint64_t;
-using LLIndex = uint32_t; // linked list index
+using DIndex = uint32_t; // index into a component pool's dense/sparse storage
 
 using CompPools = std::vector<std::unique_ptr<CompPool2Base>>;
 using CompPoolsPacked = std::vector<CompPool2Base*>;
@@ -26,8 +26,9 @@ using EventDequesPacked = std::vector<EventDequeBase*>;
 inline GTick globalTick = 0;
 
 constexpr GTick GTick_INVALID = std::numeric_limits<GTick>::max();
-constexpr Entity Entity_INVALID = static_cast<Entity>(std::numeric_limits<EntityBase>::max());
-constexpr LLIndex LLIndex_INVALID = std::numeric_limits<LLIndex>::max();
+constexpr EntityBase EntityBase_INVALID = std::numeric_limits<EntityBase>::max();
+constexpr Entity Entity_INVALID = static_cast<Entity>(EntityBase_INVALID);
+constexpr DIndex DIndex_NONE = 0; // sentinel: "no dense slot" (dense slot 0 is a permanent guard)
 constexpr size_t Size_INVALID = std::numeric_limits<size_t>::max();
 
 struct TickContext

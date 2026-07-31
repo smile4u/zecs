@@ -1,80 +1,135 @@
 #pragma once
 
 #include "zecs/comp_pool.h"
+#include "zecs/types.h"
+
+#include <array>
+#include <cstddef>
+#include <type_traits>
+#include <utility>
 
 namespace zecs
 {
 
-struct ViewCompGroupBase
-{
-    struct It
-    {
-        using InternalIt = CompPool2Base::EntityIt;
-
-        inline It() : it(0), it_end(0), view(nullptr) { }
-        inline It(InternalIt it_, InternalIt it_end_, const ViewCompGroupBase* view_) : it(it_), it_end(it_end_), view(view_) { next_matched(); }
-        inline It(InternalIt it_end_) : it(it_end_), it_end(it_end_), view(nullptr) {}
-        inline It& operator=(const It& other) { it = other.it; it_end = other.it_end; view = other.view; return *this; }
-        inline It& operator++() { ++it; next_matched(); return *this; };
-        inline bool operator==(const It& other) const { return it == other.it; }
-        inline bool operator!=(const It& other) const { return it != other.it; }
-        inline Entity operator*() const { return *it; }
-
-    private:
-        InternalIt it;
-        InternalIt it_end;
-        const ViewCompGroupBase* view;
-
-        inline void next_matched() noexcept { while (it != it_end && !view->has<1>(*it)) { ++it; } }
-    };
-
-    void init(CompPool2Base** pools_ptr_, size_t pools_count_);
-    inline bool empty() const noexcept { return it_begin == it_end; }
-    inline It begin() noexcept { return it_begin; }
-    inline It end() noexcept { return it_end; }
-
-    template<size_t offset = 0>
-    inline bool has(Entity e) const noexcept
-    {
-        for (size_t i = offset; i < pools_count; ++i) { if (!pools_ptr[i]->contains(e)) return false; }
-        return true;
-    }
-
-private:
-    size_t pools_count = 0;
-    CompPool2Base** pools_ptr = nullptr;
-
-    It it_begin;
-    It it_end;
-};
-
 template<typename... T>
-struct ViewCompGroup2 : public ViewCompGroupBase
+struct ViewCompGroup
 {
     static_assert(sizeof...(T) > 0);
     using Pools = std::array<CompPool2Base*, sizeof...(T)>;
 
-    ViewCompGroup2(Pools pools_)
-        : pools(std::move(pools_))
-    { 
-        init(pools.data(), pools.size());
+    struct It
+    {
+        using InternalIt = CompPool2Base::EntityIt;
+
+        inline It(InternalIt it_, InternalIt it_end_, const ViewCompGroup* view_) noexcept
+            : it(it_)
+            , it_end(it_end_)
+            , view(view_)
+        {
+            next_matched();
+        }
+
+        inline It() noexcept : it(0), it_end(0), view(nullptr) { }        
+        inline It(InternalIt it_end_) noexcept : it(it_end_), it_end(it_end_), view(nullptr) { }
+        inline It& operator++() noexcept { ++it; next_matched(); return *this; }
+        inline bool operator==(const It& other) const noexcept { return it == other.it; }
+        inline bool operator!=(const It& other) const noexcept { return it != other.it; }
+        inline Entity operator*() const noexcept { return *it; }
+
+    private:
+        InternalIt it;
+        InternalIt it_end;
+        const ViewCompGroup* view;
+
+        inline void next_matched() noexcept
+        {
+            while (it != it_end && !view->has_all(*it))
+                ++it;
+        }
+    };
+
+    ViewCompGroup(Pools pools_, GTick* tick_)
+        : pools(pools_)
+        , tick(tick_)
+    {
+        for (size_t i = 0; i < pools.size(); ++i)
+        {
+            if (pools[i] == nullptr)
+            {
+                lead = i;
+                break;
+            }
+
+            if (pools[i]->size() < pools[lead]->size())
+                lead = i;
+        }
+
+        if (pools[lead])
+        {
+            CompPool2Base::EntityIt internal_end = pools[lead]->entities_end();
+            it_begin = It(pools[lead]->entities_begin(), internal_end, this);
+            it_end = It(internal_end);
+        }
+    }
+
+    inline bool empty() const noexcept { return it_begin == it_end; }
+    inline It begin() const noexcept { return it_begin; }
+    inline It end() const noexcept { return it_end; }
+
+    template<typename U>
+    inline U* comp_get(Entity e) const noexcept
+    {
+        const auto* pool = pool_at<U>(e);
+        return pool ? pool->get(e) : nullptr;
+    }
+
+    template<typename U>
+    inline void comp_patch(Entity e) const noexcept
+    {
+        auto* pool = pool_at<U>(e);
+        if (pool)
+            pool->patch(e, (*tick)++);
     }
 
 private:
-    Pools pools;
-};
-
-struct ViewCompGroupRt : public ViewCompGroupBase
-{
-    using Pools = CompPoolsPacked;
-
-    ViewCompGroupRt(Pools pools_)
-        : pools(std::move(pools_))
-    { 
-        init(pools.data(), pools.size());
+    template<size_t... Idx>
+    inline bool has_all_impl(Entity e, std::index_sequence<Idx...>) const noexcept
+    {
+        return ((Idx == lead || pools[Idx]->contains(e)) && ...);
     }
 
-private:
+    inline bool has_all(Entity e) const noexcept
+    {
+        return has_all_impl(e, std::index_sequence_for<T...>{});
+    }
+
+    template<typename U>
+    inline CompPool2<U>* pool_at(Entity e) const noexcept
+    {
+        constexpr size_t idx = index_of<U>();
+        static_assert(idx < sizeof...(T), "U must be one of the view's component types");
+        return static_cast<CompPool2<U>*>(pools[idx]);
+    }
+
+    // Position of U within T..., or Size_INVALID if U is not one of T....
+    template<typename U>
+    static constexpr size_t index_of() noexcept
+    {
+        const bool matches[] = { std::is_same_v<U, T>... };
+        for (size_t i = 0; i < sizeof...(T); ++i)
+        {
+            if (matches[i])
+                return i;
+        }
+
+        return Size_INVALID;
+    }
+
     Pools pools;
+    GTick* tick;
+    size_t lead = 0;
+    It it_begin;
+    It it_end;
 };
+
 } // namespace zecs

@@ -2,12 +2,12 @@
 
 #include "zecs/comp_pool.h"
 #include "zecs/comp_tuple.h"
-#include "zecs/debug.h"
 #include "zecs/guid.h"
 #include "zecs/events.h"
 #include "zecs/types.h"
 #include "zecs/view_comps.h"
 #include "zecs/view_comps_group.h"
+#include "zecs/view_comps_group_rt.h"
 #include "zecs/view_entities.h"
 #include "zecs/view_events.h"
 #include "zecs/view_patched_comps.h"
@@ -15,7 +15,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -139,7 +138,7 @@ struct ZECS_EXPORT World
     ViewComps view_comps(GUid guid);
 
     template<typename... T>
-    ViewCompGroup2<T...> view_comp_group();
+    ViewCompGroup<T...> view_comp_group();
     ViewCompGroupRt view_comp_group(const GUid* guids, size_t count);
 
     template<typename T>
@@ -177,8 +176,6 @@ struct ZECS_EXPORT World
     const Counters& counters_get();
 
 private:
-    friend struct ViewCompGroupIter;
-
     World(const World&) = delete;
     World& operator=(const World&) = delete;
 
@@ -442,9 +439,9 @@ inline ViewComps World::view_comps(GUid guid)
 }
 
 template<typename... T>
-inline ViewCompGroup2<T...> World::view_comp_group()
+inline ViewCompGroup<T...> World::view_comp_group()
 {
-    return ViewCompGroup2<T...>({ comp_pool_get<T>()... });
+    return ViewCompGroup<T...>({ comp_pool_get<T>()... }, &tick);
 }
 
 inline ViewCompGroupRt World::view_comp_group(const GUid* guids, size_t count)

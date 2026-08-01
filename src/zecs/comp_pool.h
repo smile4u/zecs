@@ -74,7 +74,7 @@ struct CompPool2 : public CompPool2Base
     inline T* get(Entity e) const noexcept
     {
         const DIndex di = dense_index_get(e);
-        return static_cast<T*>(dense_info[di].comp);
+        return static_cast<T*>(comps[di]);
     }
 
     template<typename... Args>
@@ -97,7 +97,7 @@ struct CompPool2 : public CompPool2Base
             }
 
             dense[di] = e;
-            dense_info[di].comp = comp;
+            comps[di] = comp;
             dense_patch(di, tick);
 
             on_added.Emit(*world, e);
@@ -133,7 +133,7 @@ struct CompPool2 : public CompPool2Base
         if constexpr (!std::is_empty_v<T>)
             comp_slot(di)->~T();
 
-        dense_info[di].comp = nullptr;
+        comps[di] = nullptr;
 
         dense_rem(di);
         return true;

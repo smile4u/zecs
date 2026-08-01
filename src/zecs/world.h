@@ -441,7 +441,7 @@ inline ViewComps World::view_comps(GUid guid)
 template<typename... T>
 inline ViewCompGroup<T...> World::view_comp_group()
 {
-    return ViewCompGroup<T...>({ comp_pool_get<T>()... }, &tick);
+    return ViewCompGroup<T...>({ comp_pool_get<T>()... });
 }
 
 inline ViewCompGroupRt World::view_comp_group(const GUid* guids, size_t count)

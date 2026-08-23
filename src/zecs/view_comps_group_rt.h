@@ -14,7 +14,7 @@ struct ViewCompGroupRt
     {
         using InternalIt = CompPool2Base::EntityIt;
 
-        inline It() noexcept : it(), it_end(), view(nullptr) { }
+        inline It() noexcept : it(0), it_end(0), view(nullptr) { }
         inline It(InternalIt it_, InternalIt it_end_, const ViewCompGroupRt* view_) noexcept
             : it(it_), it_end(it_end_), view(view_)
         {

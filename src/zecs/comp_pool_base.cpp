@@ -11,7 +11,6 @@ CompPool2Base::CompPool2Base()
 {
     // Seed the permanent guard slot at dense index 0 (see comp_pool_base.h).
     dense.push_back(Entity_INVALID);
-    comps.push_back(nullptr);
     dense_info.push_back(Node());
     dense_size = 1;
 }
@@ -33,7 +32,6 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
     {
         dense_size = dense.size() + 1;
         dense.resize(dense_size);
-        comps.resize(dense_size);
         dense_info.resize(dense_size);
 
         assert(dense_size < std::numeric_limits<DIndex>::max());
@@ -46,7 +44,6 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
     }
 
     assert(dense.size() == dense_info.size());
-    assert(dense.size() == comps.size());
     assert(di < dense.size());
 
     sparse[si] = di;
@@ -60,9 +57,8 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
 void CompPool2Base::dense_rem(DIndex di) noexcept
 {
     assert(dense.size() == dense_info.size());
-    assert(dense.size() == comps.size());
     assert(di < dense.size());
-    assert(comps[di] == nullptr);
+    assert(dense_info[di].comp == nullptr);
 
     const DIndex old_prev = dense_info[di].prev;
     const DIndex old_next = dense_info[di].next;

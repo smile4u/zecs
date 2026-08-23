@@ -20,43 +20,46 @@ struct CompPool2Base
 {
     struct Node
     {
+        void* comp = nullptr;
         GTick tick = GTick_INVALID;
         DIndex next = DIndex_NONE;
         DIndex prev = DIndex_NONE;
     };
 
     using Dense = std::vector<Entity>;
-    using DenseComps = std::vector<void*>;
     using DenseInfo = std::vector<Node>;
     using Sparse = std::vector<DIndex>;
 
     struct EntityIt
     {
-        inline EntityIt() noexcept
-            : cur(nullptr)
-            , end(nullptr)
+        inline EntityIt(DIndex index_) noexcept
+            : index(index_)
+            , dense(nullptr)
+            , dense_size(0)
         { }
 
-        inline EntityIt(const Entity* cur_, const Entity* end_) noexcept
-            : cur(cur_)
-            , end(end_)
+        inline EntityIt(DIndex index_, const Dense* dense_) noexcept
+            : index(index_)
+            , dense(dense_)
+            , dense_size(static_cast<DIndex>(dense_->size()))
         {
             next_matched();
         }
 
-        inline bool operator==(const EntityIt& other) const noexcept { return cur == other.cur; }
-        inline bool operator!=(const EntityIt& other) const noexcept { return cur != other.cur; }
-        inline EntityIt& operator++() noexcept { ++cur; next_matched(); return *this; }
-        inline Entity operator*() const noexcept { return *cur; }
+        inline bool operator==(const EntityIt& other) const noexcept { return index == other.index; }
+        inline bool operator!=(const EntityIt& other) const noexcept { return index != other.index; }
+        inline EntityIt& operator++() noexcept { index++; next_matched(); return *this; }
+        inline Entity operator*() const noexcept { return dense->operator[](index); }
 
     private:
         inline void next_matched() noexcept
         {
-            while (cur != end && *cur == Entity_INVALID) ++cur;
+            while (index < dense_size && dense->operator[](index) == Entity_INVALID) index++;
         }
 
-        const Entity* cur;
-        const Entity* end;
+        DIndex index;
+        DIndex dense_size;
+        const Dense* dense;
     };
 
     struct PatchIt
@@ -118,13 +121,6 @@ struct CompPool2Base
     void patch(Entity e, GTick tick) noexcept;
     GTick patch_get(Entity e) const noexcept;
 
-    // Raw lookup-array accessors for view snapshots (see ViewCompGroup::PoolInfo).
-    // The returned pointers are invalidated by structural pool changes
-    // (add/remove) — same contract as the iterators from entities_begin/end().
-    inline const DIndex* sparse_data_get() const noexcept { return sparse.data(); }
-    inline size_t sparse_size_get() const noexcept { return sparse_size; }
-    inline void* const* comps_data_get() const noexcept { return comps.data(); }
-
     virtual GUid guid() const = 0;
     virtual const std::type_info* type() const = 0;
     virtual void* raw_get(Entity e) const = 0;
@@ -132,8 +128,8 @@ struct CompPool2Base
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
     virtual bool raw_remove(Entity e) = 0;
 
-    inline EntityIt entities_begin() const noexcept { return EntityIt(dense.data(), dense.data() + dense.size()); }
-    inline EntityIt entities_end() const noexcept { const Entity* d = dense.data(); return EntityIt(d + dense.size(), d + dense.size()); }
+    inline EntityIt entities_begin() const noexcept { return EntityIt(0, &dense); }
+    inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
 
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &dense_info); }
     inline PatchIt patches_end() const noexcept { return PatchIt(DIndex_NONE); }
@@ -155,13 +151,12 @@ protected:
 
     World* world = nullptr;
 
-    // dense/comps/dense_info slot 0 is a permanent guard: dense[0] == Entity_INVALID
-    // and comps[0] == nullptr forever, never handed out by dense_add().
+    // dense/dense_info slot 0 is a permanent guard: dense[0] == Entity_INVALID
+    // and dense_info[0].comp == nullptr forever, never handed out by dense_add().
     // This lets sparse/free_head/patch_head/Node::next/prev use plain 0 as their
-    // "no value" sentinel, and lets get()/patch() index comps[di]/dense_info[di]
-    // unconditionally without a validity branch.
+    // "no value" sentinel, and lets get()/patch() index dense_info[di] unconditionally
+    // without a validity branch.
     Dense dense;
-    DenseComps comps;
     DenseInfo dense_info;
     size_t dense_count = 0;
     size_t dense_size = 0;
@@ -186,7 +181,7 @@ constexpr size_t CompPool2Base::size() const noexcept
 inline void CompPool2Base::patch(Entity e, GTick tick) noexcept
 {
     const DIndex di = dense_index_get(e);
-    if (!comps[di])
+    if (!dense_info[di].comp)
         return;
 
     dense_patch(di, tick);

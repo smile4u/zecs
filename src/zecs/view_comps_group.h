@@ -17,19 +17,6 @@ struct ViewCompGroup
     static_assert(sizeof...(T) > 0);
     using Pools = std::array<CompPool2Base*, sizeof...(T)>;
 
-    // Snapshot of one pool's lookup arrays for hot loops. Grabbed once at view
-    // construction, so component stores can't alias-force reloads of pool
-    // fields on every step. Invalidated by structural pool changes (add/remove)
-    // — same contract as the iterators handed out by the pool.
-    struct PoolInfo
-    {
-        const DIndex* sparse = nullptr;
-        size_t sparse_size = 0;
-        void* const* comps = nullptr;
-    };
-
-    using PoolInfos = std::array<PoolInfo, sizeof...(T)>;
-
     struct It
     {
         using InternalIt = CompPool2Base::EntityIt;
@@ -42,7 +29,7 @@ struct ViewCompGroup
             next_matched();
         }
 
-        inline It() noexcept : it(), it_end(), view(nullptr) { }
+        inline It() noexcept : it(0), it_end(0), view(nullptr) { }        
         inline It(InternalIt it_end_) noexcept : it(it_end_), it_end(it_end_), view(nullptr) { }
         inline It& operator++() noexcept { ++it; next_matched(); return *this; }
         inline bool operator==(const It& other) const noexcept { return it == other.it; }
@@ -61,32 +48,26 @@ struct ViewCompGroup
         }
     };
 
-    ViewCompGroup(Pools pools_)
+    ViewCompGroup(Pools pools_, GTick* tick_)
+        : pools(pools_)
+        , tick(tick_)
     {
-        for (size_t i = 0; i < pools_.size(); ++i)
+        for (size_t i = 0; i < pools.size(); ++i)
         {
-            const CompPool2Base* pool = pools_[i];
-            infos[i] = (pool)
-                ? PoolInfo{ pool->sparse_data_get(), pool->sparse_size_get(), pool->comps_data_get() }
-                : null_info;
-        }
-
-        for (size_t i = 0; i < pools_.size(); ++i)
-        {
-            if (pools_[i] == nullptr)
+            if (pools[i] == nullptr)
             {
                 lead = i;
                 break;
             }
 
-            if (pools_[i]->size() < pools_[lead]->size())
+            if (pools[i]->size() < pools[lead]->size())
                 lead = i;
         }
 
-        if (pools_[lead])
+        if (pools[lead])
         {
-            CompPool2Base::EntityIt internal_end = pools_[lead]->entities_end();
-            it_begin = It(pools_[lead]->entities_begin(), internal_end, this);
+            CompPool2Base::EntityIt internal_end = pools[lead]->entities_end();
+            it_begin = It(pools[lead]->entities_begin(), internal_end, this);
             it_end = It(internal_end);
         }
     }
@@ -98,35 +79,36 @@ struct ViewCompGroup
     template<typename U>
     inline U* comp_get(Entity e) const noexcept
     {
-        constexpr size_t idx = index_of<U>();
-        static_assert(idx < sizeof...(T), "U must be one of the view's component types");
-        const PoolInfo& c = infos[idx];
-        const DIndex di = info_di(c, e);
-        // di == DIndex_NONE (или null-пул) ведёт на guard-слот comps[0] == nullptr
-        return static_cast<U*>(c.comps[di]);
+        const auto* pool = pool_at<U>(e);
+        return pool ? pool->get(e) : nullptr;
+    }
+
+    template<typename U>
+    inline void comp_patch(Entity e) const noexcept
+    {
+        auto* pool = pool_at<U>(e);
+        if (pool)
+            pool->patch(e, (*tick)++);
     }
 
 private:
-    static inline DIndex info_di(const PoolInfo& c, Entity e) noexcept
-    {
-        const DIndex si = static_cast<DIndex>(e);
-        return (si < c.sparse_size) ? c.sparse[si] : DIndex_NONE;
-    }
-
-    static inline bool info_contains(const PoolInfo& c, Entity e) noexcept
-    {
-        return info_di(c, e) != DIndex_NONE;
-    }
-
     template<size_t... Idx>
     inline bool has_all_impl(Entity e, std::index_sequence<Idx...>) const noexcept
     {
-        return ((Idx == lead || info_contains(infos[Idx], e)) && ...);
+        return ((Idx == lead || pools[Idx]->contains(e)) && ...);
     }
 
     inline bool has_all(Entity e) const noexcept
     {
         return has_all_impl(e, std::index_sequence_for<T...>{});
+    }
+
+    template<typename U>
+    inline CompPool2<U>* pool_at(Entity e) const noexcept
+    {
+        constexpr size_t idx = index_of<U>();
+        static_assert(idx < sizeof...(T), "U must be one of the view's component types");
+        return static_cast<CompPool2<U>*>(pools[idx]);
     }
 
     // Position of U within T..., or Size_INVALID if U is not one of T....
@@ -143,12 +125,8 @@ private:
         return Size_INVALID;
     }
 
-    // Guard-слот для null-пулов: comp_get индексирует comps без ветки на
-    // nullptr, для отсутствующего пула попадает сюда (comps[0] == nullptr).
-    inline static void* const null_comps[1] = { nullptr };
-    inline static const PoolInfo null_info{ nullptr, 0, null_comps };
-
-    PoolInfos infos;
+    Pools pools;
+    GTick* tick;
     size_t lead = 0;
     It it_begin;
     It it_end;

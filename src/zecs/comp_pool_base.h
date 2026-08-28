@@ -22,12 +22,19 @@ struct CompPool2Base
     {
         void* comp = nullptr;
         GTick tick = GTick_INVALID;
+    };
+
+    // Patch-list and free-list linkage, kept out of `Node` so the hot `get()`
+    // path indexes a 16-byte (power-of-two) stride instead of 24 bytes.
+    struct Link
+    {
         DIndex next = DIndex_NONE;
         DIndex prev = DIndex_NONE;
     };
 
     using Dense = std::vector<Entity>;
     using DenseInfo = std::vector<Node>;
+    using Links = std::vector<Link>;
     using Sparse = std::vector<DIndex>;
 
     struct EntityIt
@@ -69,13 +76,15 @@ struct CompPool2Base
             , since(0)
             , dense(nullptr)
             , dense_info(nullptr)
+            , links(nullptr)
         { }
 
-        inline PatchIt(DIndex head_, GTick since_, const Dense* dense_, const DenseInfo* dense_info_) noexcept
+        inline PatchIt(DIndex head_, GTick since_, const Dense* dense_, const DenseInfo* dense_info_, const Links* links_) noexcept
             : head(head_)
             , since(since_)
             , dense(dense_)
             , dense_info(dense_info_)
+            , links(links_)
         {
             validate();
         }
@@ -91,7 +100,7 @@ struct CompPool2Base
         {
             if (head != DIndex_NONE)
             {
-                head = (*dense_info)[head].next;
+                head = (*links)[head].next;
                 validate();
             }
         }
@@ -109,6 +118,7 @@ struct CompPool2Base
         DIndex head;
         const Dense* dense;
         const DenseInfo* dense_info;
+        const Links* links;
     };
 
     ZECS_EXPORT CompPool2Base();
@@ -131,7 +141,7 @@ struct CompPool2Base
     inline EntityIt entities_begin() const noexcept { return EntityIt(0, &dense); }
     inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
 
-    inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &dense_info); }
+    inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &dense_info, &links); }
     inline PatchIt patches_end() const noexcept { return PatchIt(DIndex_NONE); }
     inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? dense_info[patch_head].tick < since : true; }
 
@@ -153,11 +163,12 @@ protected:
 
     // dense/dense_info slot 0 is a permanent guard: dense[0] == Entity_INVALID
     // and dense_info[0].comp == nullptr forever, never handed out by dense_add().
-    // This lets sparse/free_head/patch_head/Node::next/prev use plain 0 as their
+    // This lets sparse/free_head/patch_head/Link::next/prev use plain 0 as their
     // "no value" sentinel, and lets get()/patch() index dense_info[di] unconditionally
     // without a validity branch.
     Dense dense;
     DenseInfo dense_info;
+    Links links;
     size_t dense_count = 0;
     size_t dense_size = 0;
 

@@ -329,4 +329,105 @@ TEST_CASE("view_api")
         REQUIRE(group_entities.size() == 1);
         CHECK(group_entities[0] == replacement);
     }
+
+    SUBCASE("view_comps does not visit components added to new entities during traversal")
+    {
+        // EntityIt snapshots dense_size at construction, so components added to
+        // brand-new entities mid-pass (appended beyond the cached size) must not
+        // appear in the current traversal.
+        zecs::World world("add-during-comps");
+        const zecs::Entity e1 = world.entity_add();
+        const zecs::Entity e2 = world.entity_add();
+        const zecs::Entity e3 = world.entity_add();
+        REQUIRE(world.comp_add<test::Position>(e1, 1, 1) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(e2, 2, 2) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(e3, 3, 3) != nullptr);
+
+        std::vector<zecs::Entity> visited;
+        bool added = false;
+        for (zecs::Entity entity : world.view_comps<test::Position>())
+        {
+            visited.push_back(entity);
+            if (!added)
+            {
+                added = true;
+                const zecs::Entity ne = world.entity_add();
+                REQUIRE(world.comp_add<test::Position>(ne, 9, 9) != nullptr);
+            }
+        }
+
+        REQUIRE(visited.size() == 3);
+        CHECK(visited[0] == e1);
+        CHECK(visited[1] == e2);
+        CHECK(visited[2] == e3);
+    }
+
+    SUBCASE("view_comps visits components that reuse freed slots during traversal")
+    {
+        // The pool free list hands back a slot freed mid-pass; the reused slot is
+        // a real (non-INVALID) dense entry, so the traversal picks up the new owner.
+        zecs::World world("reuse-during");
+        const zecs::Entity e1 = world.entity_add();
+        const zecs::Entity e2 = world.entity_add();
+        const zecs::Entity e3 = world.entity_add();
+        REQUIRE(world.comp_add<test::Position>(e1, 1, 1) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(e2, 2, 2) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(e3, 3, 3) != nullptr);
+
+        std::vector<zecs::Entity> visited;
+        zecs::Entity ne = zecs::Entity_INVALID;
+        bool done = false;
+        for (zecs::Entity entity : world.view_comps<test::Position>())
+        {
+            visited.push_back(entity);
+            if (!done)
+            {
+                done = true;
+                REQUIRE(world.comp_remove<test::Position>(e3));
+                ne = world.entity_add();
+                REQUIRE(world.comp_add<test::Position>(ne, 9, 9) != nullptr);
+            }
+        }
+
+        REQUIRE(visited.size() == 3);
+        CHECK(visited[0] == e1);
+        CHECK(visited[1] == e2);
+        CHECK(visited[2] == ne);
+    }
+
+    SUBCASE("group view picks up components added to a future entity during traversal")
+    {
+        // Group membership is evaluated on demand (has<1> per lead entity), so a
+        // component added mid-pass to an entity still ahead in the lead pool is
+        // observed when the traversal reaches it.
+        zecs::World world("group-add-during");
+        const zecs::Entity x = world.entity_add();
+        const zecs::Entity y = world.entity_add();
+        const zecs::Entity z = world.entity_add();
+        REQUIRE(world.comp_add<test::Position>(x, 1, 1) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(y, 2, 2) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(z, 3, 3) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(y, 20, 20) != nullptr);
+        // Velocity pool stays >= Position pool so Position (index 0) leads the group.
+        const zecs::Entity w = world.entity_add();
+        const zecs::Entity v = world.entity_add();
+        REQUIRE(world.comp_add<test::Velocity>(w, 30, 30) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(v, 40, 40) != nullptr);
+
+        std::vector<zecs::Entity> visited;
+        bool added = false;
+        for (zecs::Entity entity : world.view_comp_group<test::Position, test::Velocity>())
+        {
+            visited.push_back(entity);
+            if (!added)
+            {
+                added = true;
+                REQUIRE(world.comp_add<test::Velocity>(z, 33, 33) != nullptr);
+            }
+        }
+
+        REQUIRE(visited.size() == 2);
+        CHECK(visited[0] == y);
+        CHECK(visited[1] == z);
+    }
 }

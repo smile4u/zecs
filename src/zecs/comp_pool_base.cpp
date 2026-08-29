@@ -44,7 +44,7 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
     else
     {
         di = free_head;
-        free_head = links[free_head].next;
+        free_head = dense_info[di].free_next;
     }
 
     assert(dense.size() == dense_info.size());
@@ -81,7 +81,11 @@ void CompPool2Base::dense_rem(DIndex di) noexcept
         patch_head = old_next;
 
     dense[di] = Entity_INVALID;
-    links[di].next = free_head;
+    // Push the slot onto the free-list through Node::free_next, NOT through
+    // links[di]: links[] of a dead slot intentionally keeps its stale patch-list
+    // linkage as a waypoint, so a PatchIt parked on this slot can still reach its
+    // historical successor instead of wandering into the free-list.
+    dense_info[di].free_next = free_head;
 
     assert(dense_count > 0);
     dense_count--;

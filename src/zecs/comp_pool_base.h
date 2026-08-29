@@ -20,12 +20,26 @@ struct CompPool2Base
 {
     struct Node
     {
-        void* comp = nullptr;
+        // Live slot: comp points at the component (nullptr only for the guard slot
+        // and transiently inside remove()). Dead slot: free_next is the next
+        // free-list index, DIndex_NONE ends the list. Liveness is tracked by
+        // dense[di] != Entity_INVALID, so the active member is always known from
+        // context and no type-punning happens.
+        union
+        {
+            void* comp;
+            DIndex free_next;
+        };
         GTick tick = GTick_INVALID;
+
+        Node() noexcept : comp(nullptr) {}
     };
 
-    // Patch-list and free-list linkage, kept out of `Node` so the hot `get()`
+    // Patch-list linkage, kept out of `Node` so the hot `get()`
     // path indexes a 16-byte (power-of-two) stride instead of 24 bytes.
+    // The free-list does NOT use these links: it is threaded through
+    // Node::free_next of dead slots, so links[] of a dead slot stays a stable
+    // waypoint for in-flight PatchIt iterators (see dense_rem).
     struct Link
     {
         DIndex next = DIndex_NONE;
@@ -107,10 +121,21 @@ struct CompPool2Base
 
         inline void validate() noexcept
         {
-            if (head != DIndex_NONE)
+            while (head != DIndex_NONE)
             {
+                // Skip dead slots: their links[] keep the stale patch-list
+                // linkage (see dense_rem), so a removed node's successor chain
+                // stays walkable instead of yielding Entity_INVALID.
+                if ((*dense)[head] == Entity_INVALID)
+                {
+                    head = (*links)[head].next;
+                    continue;
+                }
+
                 if ((*dense_info)[head].tick < since)
                     head = DIndex_NONE;
+
+                break;
             }
         }
 
@@ -162,10 +187,13 @@ protected:
     World* world = nullptr;
 
     // dense/dense_info slot 0 is a permanent guard: dense[0] == Entity_INVALID
-    // and dense_info[0].comp == nullptr forever, never handed out by dense_add().
-    // This lets sparse/free_head/patch_head/Link::next/prev use plain 0 as their
-    // "no value" sentinel, and lets get()/patch() index dense_info[di] unconditionally
-    // without a validity branch.
+    // and dense_info[0].comp == nullptr forever, never handed out by dense_add()
+    // and never pushed onto the free-list. This lets sparse/free_head/patch_head/
+    // Link::next/prev use plain 0 as their "no value" sentinel, and lets
+    // get()/patch() index dense_info[di] unconditionally without a validity branch.
+    // Note: a dead slot's Node holds its free-list link in free_next (see
+    // dense_rem), so comp == nullptr means "no component" only for the guard
+    // and for slots reached via sparse[].
     Dense dense;
     DenseInfo dense_info;
     Links links;

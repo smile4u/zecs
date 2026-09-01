@@ -74,7 +74,7 @@ struct CompPool2 : public CompPool2Base
     inline T* get(Entity e) const noexcept
     {
         const DIndex di = dense_index_get(e);
-        return static_cast<T*>(dense_info[di].comp);
+        return static_cast<T*>(comps[di].comp);
     }
 
     template<typename... Args>
@@ -97,7 +97,7 @@ struct CompPool2 : public CompPool2Base
             }
 
             dense[di] = e;
-            dense_info[di].comp = comp;
+            comps[di].comp = comp;
             dense_patch(di, tick);
 
             on_added.Emit(*world, e);
@@ -133,7 +133,7 @@ struct CompPool2 : public CompPool2Base
         if constexpr (!std::is_empty_v<T>)
             comp_slot(di)->~T();
 
-        dense_info[di].comp = nullptr;
+        comps[di].comp = nullptr;
 
         dense_rem(di);
         return true;
@@ -166,7 +166,7 @@ struct CompPool2 : public CompPool2Base
 
 private:
     // Component storage is inline and indexed by the dense index (di), so that
-    // the data lives in di-order parallel to dense/dense_info instead of being
+    // the data lives in di-order parallel to dense/comps instead of being
     // pointer-chased through a separate allocator.
     static constexpr uint32_t PAGE_BITS = std::popcount(PAGE_SIZE - 1);
     static constexpr uint32_t PAGE_MASK = PAGE_SIZE - 1;

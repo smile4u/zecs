@@ -18,7 +18,7 @@ using CompPool2Signal = Gallant::Signal2<World&, Entity>;
 
 struct CompPool2Base
 {
-    struct Node
+    struct CompNode
     {
         // Live slot: comp points at the component (nullptr only for the guard slot
         // and transiently inside remove()). Dead slot: free_next is the next
@@ -32,23 +32,23 @@ struct CompPool2Base
         };
         GTick tick = GTick_INVALID;
 
-        Node() noexcept : comp(nullptr) {}
+        CompNode() noexcept : comp(nullptr) {}
     };
 
-    // Patch-list linkage, kept out of `Node` so the hot `get()`
+    // Patch-list linkage, kept out of `CompNode` so the hot `get()`
     // path indexes a 16-byte (power-of-two) stride instead of 24 bytes.
-    // The free-list does NOT use these links: it is threaded through
-    // Node::free_next of dead slots, so links[] of a dead slot stays a stable
+    // The free-list does NOT use these patches: it is threaded through
+    // CompNode::free_next of dead slots, so patches[] of a dead slot stays a stable
     // waypoint for in-flight PatchIt iterators (see dense_rem).
-    struct Link
+    struct PatchNode
     {
         DIndex next = DIndex_NONE;
         DIndex prev = DIndex_NONE;
     };
 
     using Dense = std::vector<Entity>;
-    using DenseInfo = std::vector<Node>;
-    using Links = std::vector<Link>;
+    using Comps = std::vector<CompNode>;
+    using Patches = std::vector<PatchNode>;
     using Sparse = std::vector<DIndex>;
 
     struct EntityIt
@@ -89,16 +89,16 @@ struct CompPool2Base
             : head(head_)
             , since(0)
             , dense(nullptr)
-            , dense_info(nullptr)
-            , links(nullptr)
+            , comps(nullptr)
+            , patches(nullptr)
         { }
 
-        inline PatchIt(DIndex head_, GTick since_, const Dense* dense_, const DenseInfo* dense_info_, const Links* links_) noexcept
+        inline PatchIt(DIndex head_, GTick since_, const Dense* dense_, const Comps* comps_, const Patches* patches_) noexcept
             : head(head_)
             , since(since_)
             , dense(dense_)
-            , dense_info(dense_info_)
-            , links(links_)
+            , comps(comps_)
+            , patches(patches_)
         {
             validate();
         }
@@ -107,14 +107,14 @@ struct CompPool2Base
         inline bool operator!=(const PatchIt& other) const noexcept { return head != other.head; }
         inline PatchIt& operator++() noexcept { next_matched(); return *this; }
         inline Entity operator*() const noexcept { return (*dense)[head]; }
-        inline GTick tick() const noexcept { return (*dense_info)[head].tick; }
+        inline GTick tick() const noexcept { return (*comps)[head].tick; }
 
     private:
         inline void next_matched() noexcept
         {
             if (head != DIndex_NONE)
             {
-                head = (*links)[head].next;
+                head = (*patches)[head].next;
                 validate();
             }
         }
@@ -123,16 +123,16 @@ struct CompPool2Base
         {
             while (head != DIndex_NONE)
             {
-                // Skip dead slots: their links[] keep the stale patch-list
+                // Skip dead slots: their patches[] keep the stale patch-list
                 // linkage (see dense_rem), so a removed node's successor chain
                 // stays walkable instead of yielding Entity_INVALID.
                 if ((*dense)[head] == Entity_INVALID)
                 {
-                    head = (*links)[head].next;
+                    head = (*patches)[head].next;
                     continue;
                 }
 
-                if ((*dense_info)[head].tick < since)
+                if ((*comps)[head].tick < since)
                     head = DIndex_NONE;
 
                 break;
@@ -142,8 +142,8 @@ struct CompPool2Base
         GTick since;
         DIndex head;
         const Dense* dense;
-        const DenseInfo* dense_info;
-        const Links* links;
+        const Comps* comps;
+        const Patches* patches;
     };
 
     ZECS_EXPORT CompPool2Base();
@@ -166,9 +166,9 @@ struct CompPool2Base
     inline EntityIt entities_begin() const noexcept { return EntityIt(0, &dense); }
     inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
 
-    inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &dense_info, &links); }
+    inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &comps, &patches); }
     inline PatchIt patches_end() const noexcept { return PatchIt(DIndex_NONE); }
-    inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? dense_info[patch_head].tick < since : true; }
+    inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? comps[patch_head].tick < since : true; }
 
     CompPool2Signal on_added;
     CompPool2Signal on_removed;
@@ -186,17 +186,17 @@ protected:
 
     World* world = nullptr;
 
-    // dense/dense_info slot 0 is a permanent guard: dense[0] == Entity_INVALID
-    // and dense_info[0].comp == nullptr forever, never handed out by dense_add()
+    // dense/comps slot 0 is a permanent guard: dense[0] == Entity_INVALID
+    // and comps[0].comp == nullptr forever, never handed out by dense_add()
     // and never pushed onto the free-list. This lets sparse/free_head/patch_head/
-    // Link::next/prev use plain 0 as their "no value" sentinel, and lets
-    // get()/patch() index dense_info[di] unconditionally without a validity branch.
-    // Note: a dead slot's Node holds its free-list link in free_next (see
+    // PatchNode::next/prev use plain 0 as their "no value" sentinel, and lets
+    // get()/patch() index comps[di] unconditionally without a validity branch.
+    // Note: a dead slot's CompNode holds its free-list link in free_next (see
     // dense_rem), so comp == nullptr means "no component" only for the guard
     // and for slots reached via sparse[].
     Dense dense;
-    DenseInfo dense_info;
-    Links links;
+    Comps comps;
+    Patches patches;
     size_t dense_count = 0;
     size_t dense_size = 0;
 
@@ -220,7 +220,7 @@ constexpr size_t CompPool2Base::size() const noexcept
 inline void CompPool2Base::patch(Entity e, GTick tick) noexcept
 {
     const DIndex di = dense_index_get(e);
-    if (!dense_info[di].comp)
+    if (!comps[di].comp)
         return;
 
     dense_patch(di, tick);
@@ -230,7 +230,7 @@ inline void CompPool2Base::patch(Entity e, GTick tick) noexcept
 inline GTick CompPool2Base::patch_get(Entity e) const noexcept
 {
     const DIndex di = dense_index_get(e);
-    return dense_info[di].tick;
+    return comps[di].tick;
 }
 
 constexpr bool CompPool2Base::contains(Entity e) const noexcept

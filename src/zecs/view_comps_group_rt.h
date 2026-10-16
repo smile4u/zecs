@@ -36,7 +36,7 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
     };
 
     ViewCompGroupRt(Pools pools_);
-    ViewCompGroupRt(World& world, const GUid* guids, size_t count);
+    ViewCompGroupRt(World& world, const GUid* guids, size_t count_);
 
     inline bool empty() const noexcept { return begin() == end(); }
     It begin() const noexcept;
@@ -45,7 +45,6 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
 
     inline bool has(Entity e) const noexcept
     {
-        const size_t count = pool_count();
         const auto* ptr = pool_data();
         if (count == 0 || ptr[0] == nullptr)
             return false;
@@ -57,11 +56,10 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
 private:
     using InlinePools = std::array<CompPool2Base*, INLINE_CAPACITY>;
 
-    size_t pool_count() const noexcept;
     CompPool2Base** pool_data() noexcept;
     CompPool2Base* const* pool_data() const noexcept;
     std::variant<InlinePools, Pools> pools{InlinePools{}};
-    size_t inline_count = 0;
+    size_t count = 0;
 };
 
 } // namespace zecs

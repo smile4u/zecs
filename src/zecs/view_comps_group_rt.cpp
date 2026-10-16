@@ -8,18 +8,18 @@ namespace zecs
 {
 
 ViewCompGroupRt::ViewCompGroupRt(Pools pools_)
-    : inline_count(pools_.size())
+    : count(pools_.size())
 {
-    if (pools_.size() > INLINE_CAPACITY)
+    if (count > INLINE_CAPACITY)
         pools = std::move(pools_);
     else
         std::copy(pools_.begin(), pools_.end(), std::get<InlinePools>(pools).begin());
-    if (inline_count > 1)
-        select_lead(pool_data(), inline_count);
+    if (count > 1)
+        select_lead(pool_data(), count);
 }
 
-ViewCompGroupRt::ViewCompGroupRt(World& world, const GUid* guids, size_t count)
-    : inline_count(count)
+ViewCompGroupRt::ViewCompGroupRt(World& world, const GUid* guids, size_t count_)
+    : count(count_)
 {
     if (count > INLINE_CAPACITY)
         pools.emplace<Pools>(count);
@@ -29,12 +29,6 @@ ViewCompGroupRt::ViewCompGroupRt(World& world, const GUid* guids, size_t count)
         ptr[i] = world.comp_pool_get(guids[i]);
     if (count > 1)
         select_lead(ptr, count);
-}
-
-size_t ViewCompGroupRt::pool_count() const noexcept
-{
-    // A moved-from heap-backed view has the vector's (empty) size.
-    return std::holds_alternative<InlinePools>(pools) ? inline_count : std::get<Pools>(pools).size();
 }
 
 CompPool2Base** ViewCompGroupRt::pool_data() noexcept
@@ -53,7 +47,7 @@ CompPool2Base* const* ViewCompGroupRt::pool_data() const noexcept
 
 ViewCompGroupRt::It ViewCompGroupRt::begin() const noexcept
 {
-    if (pool_count() == 0)
+    if (count == 0)
         return It();
 
     const auto* lead = pool_data()[0];
@@ -71,7 +65,7 @@ void ViewCompGroupRt::It::next_matched() noexcept
     if (it != it_end)
     {
         const auto* ptr = view->pool_data();
-        const size_t count = view->pool_count();
+        const size_t count = view->count;
         do
         {
             const Entity e = *it;

@@ -3,7 +3,6 @@
 #include "test_common_api.h"
 
 #include <array>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -42,71 +41,9 @@ struct GroupFixture
 };
 
 template<typename MakeView>
-void check_value_semantics(GroupFixture& fx, MakeView make_view)
+void check_iterator_semantics(GroupFixture& fx, MakeView make_view)
 {
     using View = decltype(make_view(fx.world));
-    zecs::World empty_world;
-    const std::vector<zecs::Entity> expected = {fx.first, fx.second};
-    auto check = [&](const View& view) {
-        CHECK_FALSE(view.empty());
-        CHECK(view.has(fx.first));
-        CHECK_FALSE(view.has(fx.partial));
-        CHECK(test::collect_entities(view) == expected);
-    };
-
-    SUBCASE("copy construction outlives and does not alias source")
-    {
-        std::optional<View> saved;
-        {
-            auto source = make_view(fx.world);
-            saved.emplace(source);
-            source = make_view(empty_world);
-        }
-        check(*saved);
-    }
-
-    SUBCASE("move construction outlives source")
-    {
-        std::optional<View> saved;
-        {
-            auto source = make_view(fx.world);
-            saved.emplace(std::move(source));
-            source = make_view(empty_world);
-        }
-        check(*saved);
-    }
-
-    SUBCASE("copy assignment outlives and does not alias source")
-    {
-        auto saved = make_view(empty_world);
-        {
-            auto source = make_view(fx.world);
-            saved = source;
-            source = make_view(empty_world);
-        }
-        check(saved);
-    }
-
-    SUBCASE("move assignment outlives source")
-    {
-        auto saved = make_view(empty_world);
-        {
-            auto source = make_view(fx.world);
-            saved = std::move(source);
-            source = make_view(empty_world);
-        }
-        check(saved);
-    }
-
-    SUBCASE("views survive container relocation")
-    {
-        std::vector<View> views;
-        views.reserve(1);
-        views.push_back(make_view(fx.world));
-        views.push_back(make_view(empty_world));
-        check(views.front());
-        CHECK(views.back().empty());
-    }
 
     SUBCASE("iterator equality is symmetric before and after exhaustion")
     {
@@ -275,34 +212,34 @@ void check_mixed_mutation(GroupFixture& fx, MakeView make_view)
 
 } // namespace
 
-TEST_CASE("group view value semantics")
+TEST_CASE("group view iterator semantics")
 {
     GroupFixture fx;
 
     SUBCASE("typed single pool")
     {
-        check_value_semantics(fx, [](zecs::World& world) {
+        check_iterator_semantics(fx, [](zecs::World& world) {
             return world.view_comp_group<GroupTag<1>>();
         });
     }
 
     SUBCASE("typed")
     {
-        check_value_semantics(fx, [](zecs::World& world) {
+        check_iterator_semantics(fx, [](zecs::World& world) {
             return world.view_comp_group<GroupTag<0>, GroupTag<1>>();
         });
     }
 
     SUBCASE("runtime inline capacity")
     {
-        check_value_semantics(fx, [&](zecs::World& world) {
+        check_iterator_semantics(fx, [&](zecs::World& world) {
             return world.view_comp_group(fx.guids.data(), zecs::ViewCompGroupRt::INLINE_CAPACITY);
         });
     }
 
     SUBCASE("runtime heap fallback")
     {
-        check_value_semantics(fx, [&](zecs::World& world) {
+        check_iterator_semantics(fx, [&](zecs::World& world) {
             return world.view_comp_group(fx.guids.data(), zecs::ViewCompGroupRt::INLINE_CAPACITY + 1);
         });
     }
@@ -505,27 +442,5 @@ TEST_CASE("runtime group storage and empty ranges")
             const zecs::ViewCompGroupRt view(std::move(pools));
             CHECK(test::collect_entities(view) == expected);
         }
-    }
-
-    SUBCASE("assignment switches storage without aliasing source")
-    {
-        fx.world.comp_remove(fx.second, fx.guids.back());
-        auto small = fx.world.view_comp_group(fx.guids.data(), 2);
-        auto large = fx.world.view_comp_group(fx.guids.data(), fx.guids.size());
-
-        auto saved = small;
-        small = large;
-        CHECK(test::collect_entities(saved) == expected);
-        CHECK(test::collect_entities(small) == std::vector<zecs::Entity>{fx.first});
-
-        large = saved;
-        CHECK(test::collect_entities(large) == expected);
-        saved = std::move(small);
-        small = large;
-        CHECK(test::collect_entities(saved) == std::vector<zecs::Entity>{fx.first});
-        CHECK(test::collect_entities(small) == expected);
-
-        saved = std::move(large);
-        CHECK(test::collect_entities(saved) == expected);
     }
 }

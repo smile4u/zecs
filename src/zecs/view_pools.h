@@ -23,6 +23,11 @@ struct ViewPools
 {
     using It = ViewPoolsIter;
 
+    ViewPools(const ViewPools&) = delete;
+    ViewPools(ViewPools&&) = delete;
+    ViewPools& operator=(const ViewPools&) = delete;
+    ViewPools& operator=(ViewPools&&) = delete;
+
     inline ViewPools(const CompPoolsPacked& pools_) : pools(pools_) { }
     inline bool empty() const { return pools.empty(); }
     inline It begin() { return pools.begin(); }

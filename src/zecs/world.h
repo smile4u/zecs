@@ -128,6 +128,8 @@ struct ZECS_EXPORT World
 
     // ------------------------------------------
     // Views API
+    // NOTE-1: Views are non-copyable and non-movable.
+    // NOTE-2: Keep a view alive while using its iterators.
     // ------------------------------------------
 
     ViewPools view_pools();

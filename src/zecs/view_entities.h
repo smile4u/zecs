@@ -32,6 +32,11 @@ struct ViewEntities
 {
     using It = ViewEntitiesIter;
 
+    ViewEntities(const ViewEntities&) = delete;
+    ViewEntities(ViewEntities&&) = delete;
+    ViewEntities& operator=(const ViewEntities&) = delete;
+    ViewEntities& operator=(ViewEntities&&) = delete;
+
     inline ViewEntities(const Entities& entities_) : entities(entities_) { }
     inline bool empty() { return entities.empty(); }
     inline It begin() { return It(entities.begin(), entities.end()); };

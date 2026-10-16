@@ -3,6 +3,28 @@
 #include "test_common_api.h"
 
 #include <array>
+#include <type_traits>
+
+namespace
+{
+
+template<typename View>
+constexpr bool view_has_stable_identity =
+    !std::is_copy_constructible_v<View> && !std::is_move_constructible_v<View>
+    && !std::is_copy_assignable_v<View> && !std::is_move_assignable_v<View>
+    && std::is_copy_constructible_v<typename View::It> && std::is_move_constructible_v<typename View::It>
+    && std::is_copy_assignable_v<typename View::It> && std::is_move_assignable_v<typename View::It>;
+
+static_assert(view_has_stable_identity<zecs::ViewComps>);
+static_assert(view_has_stable_identity<zecs::ViewCompGroup2<test::Position>>);
+static_assert(view_has_stable_identity<zecs::ViewCompGroup2<test::Position, test::Velocity>>);
+static_assert(view_has_stable_identity<zecs::ViewCompGroupRt>);
+static_assert(view_has_stable_identity<zecs::ViewEntities>);
+static_assert(view_has_stable_identity<zecs::ViewEvents<test::DamageEvent>>);
+static_assert(view_has_stable_identity<zecs::ViewPatchedComps>);
+static_assert(view_has_stable_identity<zecs::ViewPools>);
+
+} // namespace
 
 // Covers the main zecs views on populated and empty worlds:
 // component views, group views, stale views, mutation during traversal and membership cleanup.

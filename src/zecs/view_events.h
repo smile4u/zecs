@@ -42,6 +42,11 @@ struct ViewEvents
         }
     }
 
+    ViewEvents(const ViewEvents&) = delete;
+    ViewEvents(ViewEvents&&) = delete;
+    ViewEvents& operator=(const ViewEvents&) = delete;
+    ViewEvents& operator=(ViewEvents&&) = delete;
+
     inline bool empty() { return it_begin == it_end; }
     inline It begin() { return it_begin; }
     inline It end() { return it_end; }

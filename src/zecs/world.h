@@ -2,12 +2,12 @@
 
 #include "zecs/comp_pool.h"
 #include "zecs/comp_tuple.h"
-#include "zecs/debug.h"
 #include "zecs/guid.h"
 #include "zecs/events.h"
 #include "zecs/types.h"
 #include "zecs/view_comps.h"
 #include "zecs/view_comps_group.h"
+#include "zecs/view_comps_group_rt.h"
 #include "zecs/view_entities.h"
 #include "zecs/view_events.h"
 #include "zecs/view_patched_comps.h"
@@ -15,7 +15,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -449,13 +448,7 @@ inline ViewCompGroup2<T...> World::view_comp_group()
 
 inline ViewCompGroupRt World::view_comp_group(const GUid* guids, size_t count)
 {
-    CompPoolsPacked pools;
-
-    pools.reserve(count);
-    for (size_t i = 0; i < count; ++i)
-        pools.push_back(comp_pool_get(guids[i]));
-
-    return ViewCompGroupRt(std::move(pools));
+    return ViewCompGroupRt(*this, guids, count);
 }
 
 template<typename T>

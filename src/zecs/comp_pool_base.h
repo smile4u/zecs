@@ -5,9 +5,6 @@
 #include "zecs/types.h"
 
 #include <cstddef>
-#include <cstdint>
-#include <limits>
-#include <memory>
 #include <vector>
 
 #include <signal/Signal.h>
@@ -53,26 +50,32 @@ struct CompPool2Base
 
     struct EntityIt
     {
-        inline EntityIt(DIndex index_) noexcept
-            : index(index_)
-            , dense(nullptr)
-            , dense_size(0)
-        { }
-
-        inline EntityIt(DIndex index_, const Dense* dense_) noexcept
-            : index(index_)
-            , dense(dense_)
-            , dense_size(static_cast<DIndex>(dense_->size()))
-        {
-            next_matched();
-        }
+        // Zero-index marker for empty ranges and exhausted group iterators.
+        static inline EntityIt sentinel() noexcept { return EntityIt(DIndex_NONE); }
 
         inline bool operator==(const EntityIt& other) const noexcept { return index == other.index; }
         inline bool operator!=(const EntityIt& other) const noexcept { return index != other.index; }
         inline EntityIt& operator++() noexcept { index++; next_matched(); return *this; }
         inline Entity operator*() const noexcept { return dense->operator[](index); }
+        inline DIndex index_get() const noexcept { return index; }
 
     private:
+        friend struct CompPool2Base;
+
+        inline EntityIt(DIndex index_) noexcept
+            : index(index_)
+            , dense_size(0)
+            , dense(nullptr)
+        { }
+
+        inline EntityIt(DIndex index_, const Dense* dense_) noexcept
+            : index(index_)
+            , dense_size(static_cast<DIndex>(dense_->size()))
+            , dense(dense_)
+        {
+            next_matched();
+        }
+
         inline void next_matched() noexcept
         {
             while (index < dense_size && dense->operator[](index) == Entity_INVALID) index++;
@@ -163,7 +166,8 @@ struct CompPool2Base
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
     virtual bool raw_remove(Entity e) = 0;
 
-    inline EntityIt entities_begin() const noexcept { return EntityIt(0, &dense); }
+    // Slot 0 is a permanent guard; even an empty pool has dense.size() == 1.
+    inline EntityIt entities_begin() const noexcept { return EntityIt(1, &dense); }
     inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
 
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &comps, &patches); }

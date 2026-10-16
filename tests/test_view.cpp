@@ -397,7 +397,7 @@ TEST_CASE("view_api")
 
     SUBCASE("group view picks up components added to a future entity during traversal")
     {
-        // Group membership is evaluated on demand (has<1> per lead entity), so a
+        // Group membership is evaluated on demand for each lead entity, so a
         // component added mid-pass to an entity still ahead in the lead pool is
         // observed when the traversal reaches it.
         zecs::World world("group-add-during");

@@ -1,0 +1,67 @@
+#pragma once
+
+#include "zecs/comp_pool_base.h"
+#include "zecs/view_comps_group_base.h"
+
+#include <array>
+#include <variant>
+
+namespace zecs
+{
+
+// Runtime/debug queries own their storage and traversal independently of the
+// hot-path typed view. Small groups keep their pool pointers inline.
+struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
+{
+    using Pools = CompPoolsPacked;
+    static constexpr size_t INLINE_CAPACITY = 4;
+
+    struct It
+    {
+        using InternalIt = CompPool2Base::EntityIt;
+
+        inline It() noexcept : it(InternalIt::sentinel()), it_end(InternalIt::sentinel()), view(nullptr) { }
+        inline It(InternalIt it_, InternalIt it_end_, const ViewCompGroupRt* view_) noexcept : it(it_), it_end(it_end_), view(view_) { next_matched(); }
+        inline It& operator++() noexcept { ++it; next_matched(); return *this; }
+        inline bool operator==(const It& other) const noexcept { return it == other.it; }
+        inline bool operator!=(const It& other) const noexcept { return !(*this == other); }
+        inline Entity operator*() const noexcept { return *it; }
+
+    private:
+        InternalIt it;
+        InternalIt it_end;
+        const ViewCompGroupRt* view;
+
+        void next_matched() noexcept;
+    };
+
+    ViewCompGroupRt(Pools pools_);
+    ViewCompGroupRt(World& world, const GUid* guids, size_t count);
+
+    inline bool empty() const noexcept { return begin() == end(); }
+    It begin() const noexcept;
+    // Each begin iterator owns its traversal bound, including during mutation.
+    inline It end() const noexcept { return It(); }
+
+    inline bool has(Entity e) const noexcept
+    {
+        const size_t count = pool_count();
+        const auto* ptr = pool_data();
+        if (count == 0 || ptr[0] == nullptr)
+            return false;
+
+        for (size_t i = 0; i < count; ++i) { if (!ptr[i]->contains(e)) return false; }
+        return true;
+    }
+
+private:
+    using InlinePools = std::array<CompPool2Base*, INLINE_CAPACITY>;
+
+    size_t pool_count() const noexcept;
+    CompPool2Base** pool_data() noexcept;
+    CompPool2Base* const* pool_data() const noexcept;
+    std::variant<InlinePools, Pools> pools{InlinePools{}};
+    size_t inline_count = 0;
+};
+
+} // namespace zecs

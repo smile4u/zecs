@@ -6,7 +6,6 @@
 
 #include <bit>
 #include <cassert>
-#include <new>
 #include <type_traits>
 #include <utility>
 #include <vector>

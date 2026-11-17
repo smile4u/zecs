@@ -8,24 +8,27 @@ namespace zecs
 
 using Entities = std::vector<Entity>;
 
+// Goes by index, not by vector iterators: entities can be added during the pass.
+// The end is saved when the pass starts, so new slots are not visited.
+// A new entity that takes a removed slot ahead is visited.
 struct ViewEntitiesIter
 {
-    using InternalIt = Entities::const_iterator;
-
-    inline ViewEntitiesIter(InternalIt it_, InternalIt it_end_) : it(it_), it_end(it_end_) { next_matched(); }
-    inline ViewEntitiesIter& operator++() { ++it; next_matched(); return *this; }
-    inline bool operator==(const ViewEntitiesIter& other) const { return it == other.it; }
-    inline bool operator!=(const ViewEntitiesIter& other) const { return it != other.it; }
-    inline Entity operator*() const { return *it; }
+    inline ViewEntitiesIter(const Entities& entities_, size_t index_, size_t index_end_) : entities(&entities_), index(index_), index_end(index_end_) { next_matched(); }
+    inline ViewEntitiesIter& operator++() { ++index; next_matched(); return *this; }
+    inline bool operator==(const ViewEntitiesIter& other) const { return index == other.index; }
+    inline bool operator!=(const ViewEntitiesIter& other) const { return index != other.index; }
+    inline Entity operator*() const { return (*entities)[index]; }
 
 private:
     inline void next_matched() noexcept
     {
-        while (it != it_end && *it == Entity_INVALID) ++it;
+        // A live slot keeps its own index, a removed slot keeps another one.
+        while (index != index_end && entity_to_index((*entities)[index]) != index) ++index;
     }
 
-    InternalIt it;
-    InternalIt it_end;
+    const Entities* entities;
+    size_t index;
+    size_t index_end;
 };
 
 struct ViewEntities
@@ -39,8 +42,8 @@ struct ViewEntities
 
     inline ViewEntities(const Entities& entities_) : entities(entities_) { }
     inline bool empty() { return entities.empty(); }
-    inline It begin() { return It(entities.begin(), entities.end()); };
-    inline It end() { return It(entities.end(), entities.end()); };
+    inline It begin() { return It(entities, 0, entities.size()); };
+    inline It end() { return It(entities, entities.size(), entities.size()); };
 
 private:
     const Entities& entities;

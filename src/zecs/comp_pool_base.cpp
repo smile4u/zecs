@@ -40,7 +40,7 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
     if (di == DIndex_NONE)
     {
         di = static_cast<DIndex>(dense.size());
-        assert(di < std::numeric_limits<DIndex>::max());
+        assert(di <= Entity_INDEX_MASK); // the high bits of sparse[] are for the generation
 
         dense.push_back(e);
         ticks.push_back(tick);
@@ -59,7 +59,7 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
         patches[patch_head].prev = di;
 
     patch_head = di;
-    sparse[si] = di;
+    sparse[si] = di | (static_cast<DIndex>(e) & Entity_GEN_MASK);
     dense_count++;
 
     return di;

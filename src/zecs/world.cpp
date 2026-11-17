@@ -24,12 +24,19 @@ Entity World::entity_add()
 {
     Entity e = Entity_INVALID;
 
-    if (entity_free_index != EntityBase_INVALID)
+    if (entity_free_index != Entity_INDEX_NONE)
     {
-        assert(false); // TODO: implement
+        // A removed slot keeps the next free index and the generation for this entity.
+        const EntityBase eindex = entity_free_index;
+        const EntityBase removed = static_cast<EntityBase>(entities[eindex]);
+
+        entity_free_index = removed & Entity_INDEX_MASK;
+        e = static_cast<Entity>((removed & Entity_GEN_MASK) | eindex);
+        entities[eindex] = e;
     }
     else
     {
+        assert(entities.size() < Entity_INDEX_NONE);
         e = static_cast<Entity>(entities.size());
         entities.push_back(e);
     }
@@ -38,13 +45,13 @@ Entity World::entity_add()
     return e;
 }
 
-void World::entity_remove(Entity e)
+bool World::entity_remove(Entity e)
 {
     if (e == entities_root)
-        return;
+        return false;
 
     if (!entity_is_valid(e))
-        return;
+        return false;
 
     for (CompPool2Base* pool: comp_pools_packed)
     {
@@ -54,15 +61,21 @@ void World::entity_remove(Entity e)
             pool->raw_remove(e);
     }
 
-    size_t eindex = static_cast<size_t>(e);
-    assert(eindex < entities.size());
+    const EntityBase eindex = entity_to_index(e);
 
-    entities[eindex] = Entity_INVALID;
+    // The generation is in the high bits, so this adds 1 to it.
+    // After the last generation it becomes 0 again.
+    const EntityBase next_gen = (static_cast<EntityBase>(e) & Entity_GEN_MASK) + (Entity_INDEX_MASK + 1);
+
+    entities[eindex] = static_cast<Entity>(next_gen | entity_free_index);
+    entity_free_index = eindex;
     counters.entities--;
+    return true;
 }
 
 void* World::comp_add(Entity e, GUid guid)
 {
+    assert(entity_is_valid(e));
     CompPool2Base* pool = comp_pool_get(guid);
     if (!pool)
         return nullptr;
@@ -72,6 +85,7 @@ void* World::comp_add(Entity e, GUid guid)
 
 void* World::comp_get_or_add(Entity e, GUid guid)
 {
+    assert(entity_is_valid(e));
     CompPool2Base* pool = comp_pool_get(guid);
     if (!pool)
         return nullptr;

@@ -282,8 +282,9 @@ TEST_CASE("stress_churn")
     }
     CHECK(pool_count == component_type_count);
 
-    // Reconstruct the expected live entity order. Unlike component views, entity order is
-    // expected to remain tied to the world entity storage with removed entries skipped.
+    // Reconstruct the expected live entity order. Entities go in the order of their
+    // index in the world entity storage. A new entity can take the index of a removed
+    // one, so this is not the order of creation.
     std::vector<zecs::Entity> expected_live_entities;
     expected_live_entities.reserve(total_entity_count + 1);
     expected_live_entities.push_back(world.root());
@@ -296,6 +297,11 @@ TEST_CASE("stress_churn")
         if (entity_alive[entity_index])
             expected_live_entities.push_back(entity);
     }
+
+    std::sort(expected_live_entities.begin(), expected_live_entities.end(), [](zecs::Entity a, zecs::Entity b)
+    {
+        return zecs::entity_to_index(a) < zecs::entity_to_index(b);
+    });
 
     const auto live_entities = test::collect_entities(world.view_entities());
     CHECK(live_entities == expected_live_entities);

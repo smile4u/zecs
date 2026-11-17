@@ -238,13 +238,20 @@ constexpr bool CompPool2Base::contains(Entity e) const noexcept
 
 constexpr DIndex CompPool2Base::sparse_index_get(Entity e) const noexcept
 {
-    return static_cast<DIndex>(e);
+    return entity_to_index(e);
 }
 
 constexpr DIndex CompPool2Base::dense_index_get(Entity e) const noexcept
 {
     const DIndex si = sparse_index_get(e);
-    return (si < sparse_size) ? sparse[si] : DIndex_NONE;
+    if (si >= sparse_size)
+        return DIndex_NONE;
+
+    // sparse[] keeps the dense index together with the generation of the entity.
+    // The same generation in the ID makes the high bits 0, and the dense index is left.
+    // An old ID gives a number that is too big. An empty cell gives 0 or a big number.
+    const DIndex di = sparse[si] ^ (static_cast<DIndex>(e) & Entity_GEN_MASK);
+    return (di <= Entity_INDEX_MASK) ? di : DIndex_NONE;
 }
 
 } // namespace zecs

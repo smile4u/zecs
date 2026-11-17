@@ -40,11 +40,14 @@ struct ZECS_EXPORT World
     // ------------------------------------------
     // Entity API
     // ------------------------------------------
+    // Contract: comp_add and comp_get_or_add need a valid entity.
+    // It is checked by assert. Other functions take any ID: for a removed
+    // entity they do nothing and return nullptr or false.
 
     Entity root();
 
     Entity entity_add();
-    void entity_remove(Entity e);
+    bool entity_remove(Entity e); // false for the root and for an entity that is not valid
 
     bool entity_is_valid(Entity e);
 
@@ -202,10 +205,10 @@ private:
     EventDequesPacked event_deques_packed;
 
     Entity entities_root = Entity_INVALID;
-    // Free-list link into `entities`, not a component-pool dense index: entity 0
-    // (the world root) is a real, valid entity, so 0 can't mean "no free slot"
-    // here the way DIndex_NONE (0) does for pool dense indices.
-    EntityBase entity_free_index = EntityBase_INVALID;
+    // Index of the last removed entity, the head of the free list.
+    // A removed slot of `entities` keeps the index of the next free slot
+    // and the generation for the entity that will take this slot.
+    EntityBase entity_free_index = Entity_INDEX_NONE;
 
     std::string name;
     GTick tick = 0;
@@ -228,12 +231,9 @@ inline Entity World::root()
 
 inline bool World::entity_is_valid(Entity e)
 {
-    // TODO: check entity generation
-
-    if (e == Entity_INVALID)
-        return false;
-
-    size_t eindex = static_cast<size_t>(e);
+    // A removed slot never keeps its own index, so it is not equal to any ID.
+    // Entity_INVALID has an index that is never in use.
+    size_t eindex = entity_to_index(e);
     return (eindex < entities.size()) && (entities[eindex] == e);
 }
 
@@ -294,6 +294,7 @@ CompPool2<T>* World::comp_pool_get_or_add()
 template<typename T, typename... Args>
 inline T* World::comp_add(Entity e, Args&&... args)
 {
+    assert(entity_is_valid(e));
     return comp_pool_get_or_add<T>()->add(e, &tick, std::forward<Args>(args)...);
 }
 
@@ -319,6 +320,7 @@ inline T* World::comp_get_sc()
 template<typename T>
 inline T* World::comp_get_or_add(Entity e)
 {
+    assert(entity_is_valid(e));
     auto res = comp_pool_get_or_add<T>()->get_or_add(e, &tick);
     return res.first;
 }

@@ -28,6 +28,15 @@ inline GTick globalTick = 0;
 constexpr GTick GTick_INVALID = std::numeric_limits<GTick>::max();
 constexpr EntityBase EntityBase_INVALID = std::numeric_limits<EntityBase>::max();
 constexpr Entity Entity_INVALID = static_cast<Entity>(EntityBase_INVALID);
+
+// An entity ID has two parts: the index in the low bits and the generation
+// in the high bits. A removed index is used again with the next generation,
+// so the old ID and the new ID are different.
+constexpr uint32_t Entity_INDEX_BITS = 20;
+constexpr EntityBase Entity_INDEX_MASK = (EntityBase(1) << Entity_INDEX_BITS) - 1;
+constexpr EntityBase Entity_GEN_MASK = ~Entity_INDEX_MASK;
+constexpr EntityBase Entity_INDEX_NONE = Entity_INDEX_MASK; // no real entity has this index
+
 constexpr DIndex DIndex_NONE = 0; // 0 means "no dense slot" (used as permanent guard)
 constexpr DIndex DIndex_FIRST = 1; // first real dense slot
 constexpr size_t Size_INVALID = std::numeric_limits<size_t>::max();
@@ -42,4 +51,8 @@ struct TickContext
     float dt = 0.0f;
 };
 
+constexpr EntityBase entity_to_index(Entity e) noexcept
+{
+    return static_cast<EntityBase>(e) & Entity_INDEX_MASK;
+}
 }

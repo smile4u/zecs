@@ -9,11 +9,13 @@ namespace zecs
 
 CompPool2Base::CompPool2Base()
 {
-    // Seed the permanent guard slot at dense index 0 (see comp_pool_base.h).
+    // Add slot 0. It is never used for a real component:
+    // its entity is Entity_INVALID and its comp is nullptr forever.
+    // So index 0 can mean "no slot", and get() needs no `if`.
     dense.push_back(Entity_INVALID);
     comps.push_back(CompNode());
     patches.push_back(PatchNode());
-    dense_size = 1;
+    dense_size = DIndex_FIRST;
 }
 
 DIndex CompPool2Base::dense_add(Entity e) noexcept

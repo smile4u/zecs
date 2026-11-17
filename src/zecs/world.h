@@ -202,8 +202,8 @@ private:
 
     Entity entities_root = Entity_INVALID;
     // Free-list link into `entities`, not a component-pool dense index: entity 0
-    // (the world root) is a real, valid entity, so this can't reuse DIndex_NONE (0)
-    // as its "no free slot" sentinel the way pool dense indices do.
+    // (the world root) is a real, valid entity, so 0 can't mean "no free slot"
+    // here the way DIndex_NONE (0) does for pool dense indices.
     EntityBase entity_free_index = EntityBase_INVALID;
 
     std::string name;

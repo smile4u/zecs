@@ -77,9 +77,8 @@ struct CompPool2Base
     private:
         friend struct CompPool2Base;
 
-        // Slot 0 is a permanent guard, so the first real slot is 1.
         inline EntityIt(const Dense* dense_) noexcept
-            : index(1)
+            : index(DIndex_FIRST)
             , dense(dense_)
             , dense_size(static_cast<DIndex>(dense_->size()))
         {
@@ -207,7 +206,7 @@ protected:
     // dense/comps slot 0 is a permanent guard: dense[0] == Entity_INVALID
     // and comps[0].comp == nullptr forever, never handed out by dense_add()
     // and never pushed onto the free-list. This lets sparse/free_head/patch_head/
-    // PatchNode::next/prev use plain 0 as their "no value" sentinel, and lets
+    // PatchNode::next/prev use plain 0 to mean "no value", and lets
     // get()/patch() index comps[di] unconditionally without a validity branch.
     // Note: a dead slot's CompNode holds its free-list link in free_next (see
     // dense_rem), so comp == nullptr means "no component" only for the guard

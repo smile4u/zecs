@@ -28,7 +28,8 @@ inline GTick globalTick = 0;
 constexpr GTick GTick_INVALID = std::numeric_limits<GTick>::max();
 constexpr EntityBase EntityBase_INVALID = std::numeric_limits<EntityBase>::max();
 constexpr Entity Entity_INVALID = static_cast<Entity>(EntityBase_INVALID);
-constexpr DIndex DIndex_NONE = 0; // sentinel: "no dense slot" (dense slot 0 is a permanent guard)
+constexpr DIndex DIndex_NONE = 0; // 0 means "no dense slot" (used as permanent guard)
+constexpr DIndex DIndex_FIRST = 1; // first real dense slot
 constexpr size_t Size_INVALID = std::numeric_limits<size_t>::max();
 
 struct TickContext

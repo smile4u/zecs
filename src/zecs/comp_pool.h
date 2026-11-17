@@ -72,6 +72,9 @@ struct CompPool2 : public CompPool2Base
 
     inline T* get(Entity e) const noexcept
     {
+        // Fast path: no `if` here. When the entity has no component, di is 0.
+        // Slot 0 of dense/comps is never used for a real component and its
+        // comp is always nullptr, so this line returns nullptr by itself.
         const DIndex di = dense_index_get(e);
         return static_cast<T*>(comps[di].comp);
     }

@@ -47,7 +47,12 @@ void World::entity_remove(Entity e)
         return;
 
     for (CompPool2Base* pool: comp_pools_packed)
-        pool->raw_remove(e);
+    {
+        // Most pools do not have this entity. The check
+        // should be inline, so we don't pay for a virtual call.
+        if (pool->contains(e))
+            pool->raw_remove(e);
+    }
 
     size_t eindex = static_cast<size_t>(e);
     assert(eindex < entities.size());

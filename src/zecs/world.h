@@ -247,7 +247,7 @@ inline void World::comp_patch(Entity e, GUid guid)
 {
     CompPool2Base* pool = comp_pool_get(guid);
     if (pool)
-        return pool->patch(e, tick++);
+        return pool->patch(e, &tick);
 }
 
 inline void* World::comp_get(Entity e, GUid guid)
@@ -294,7 +294,7 @@ CompPool2<T>* World::comp_pool_get_or_add()
 template<typename T, typename... Args>
 inline T* World::comp_add(Entity e, Args&&... args)
 {
-    return comp_pool_get_or_add<T>()->add(e, tick++, std::forward<Args>(args)...);
+    return comp_pool_get_or_add<T>()->add(e, &tick, std::forward<Args>(args)...);
 }
 
 template<typename T, typename... Args>
@@ -347,7 +347,7 @@ inline void World::comp_patch(Entity e)
 {
     auto* pool = comp_pool_get<T>();
     if (!pool) return;
-    pool->patch(e, tick++);
+    pool->patch(e, &tick);
 }
 
 template<typename T>
@@ -355,7 +355,7 @@ inline void World::comp_patch(Entity e, T* comp)
 {
     auto* pool = comp_pool_get<T>();
     if (!pool) return;
-    pool->patch(e, tick++);
+    pool->patch(e, &tick);
 }
 
 template<typename  T>

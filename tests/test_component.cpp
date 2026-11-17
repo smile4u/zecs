@@ -2,6 +2,22 @@
 
 #include "test_common_api.h"
 
+namespace
+{
+// Its constructor adds the same component to one more entity.
+struct AddsNext
+{
+    AddsNext(zecs::World& world, zecs::Entity next)
+    {
+        if (next != zecs::Entity_INVALID)
+            world.comp_add<AddsNext>(next, world, zecs::Entity_INVALID);
+    }
+
+    // Not empty on purpose: the pool does not call constructors of empty types.
+    int value = 0;
+};
+} // namespace
+
 // Covers typed and runtime component operations on a populated world:
 // add/get/get_or_add/remove, singleton helpers, pool lifecycle and destruction behavior.
 TEST_CASE("component_api")
@@ -72,6 +88,46 @@ TEST_CASE("component_api")
             CHECK_FALSE(res.second);
             CHECK(tick == 100);
             CHECK_FALSE(pool->contains(fx.get_or_add_entity));
+        }
+
+        SUBCASE("add and patch that do nothing keep the world tick")
+        {
+            const zecs::Entity e = fx.get_or_add_entity;
+            const zecs::GTick before = fx.world.tick_get();
+
+            // The entity has no Position: nothing to patch.
+            fx.world.comp_patch<test::Position>(e);
+            fx.world.comp_patch<test::Position>(e, nullptr);
+            fx.world.comp_patch(e, zecs::globalUid<test::Position>);
+            CHECK(fx.world.tick_get() == before);
+
+            // NonDefault can not be made without arguments.
+            CHECK(fx.world.comp_add<test::NonDefault>(e) == nullptr);
+            CHECK(fx.world.comp_add(e, zecs::globalUid<test::NonDefault>) == nullptr);
+            CHECK(fx.world.tick_get() == before);
+
+            // Real work still takes one tick each.
+            REQUIRE(fx.world.comp_add<test::Position>(e, 1, 2) != nullptr);
+            fx.world.comp_patch<test::Position>(e);
+            CHECK(fx.world.tick_get() == before + 2);
+        }
+
+        SUBCASE("component gets its tick after its constructor")
+        {
+            // The inner add is finished first, so it must have the older tick.
+            // The patch list needs this order: newer ticks stand first.
+            const zecs::Entity outer = fx.world.entity_add();
+            const zecs::Entity inner = fx.world.entity_add();
+            REQUIRE(fx.world.comp_add<AddsNext>(outer, fx.world, inner) != nullptr);
+
+            auto* pool = fx.world.comp_pool_get<AddsNext>();
+            REQUIRE(pool->contains(inner));
+            CHECK(pool->patch_get(outer) > pool->patch_get(inner));
+
+            const auto patched = test::collect_entities(fx.world.view_patched_comps<AddsNext>(zecs::TickContext(0)));
+            REQUIRE(patched.size() == 2);
+            CHECK(patched[0] == outer);
+            CHECK(patched[1] == inner);
         }
 
         SUBCASE("removing entity removes all its components")

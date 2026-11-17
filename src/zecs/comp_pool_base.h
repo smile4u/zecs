@@ -171,13 +171,14 @@ struct CompPool2Base
     constexpr size_t size() const noexcept;
     constexpr bool contains(Entity e) const noexcept;
 
-    void patch(Entity e, GTick tick) noexcept;
+    // Takes one tick from `tick`, but only when the entity has the component.
+    void patch(Entity e, GTick* tick) noexcept;
     GTick patch_get(Entity e) const noexcept;
 
     virtual GUid guid() const = 0;
     virtual const std::type_info* type() const = 0;
     virtual void* raw_get(Entity e) const = 0;
-    virtual void* raw_add(Entity e, GTick tick) = 0;
+    virtual void* raw_add(Entity e, GTick* tick) = 0;
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
     virtual bool raw_remove(Entity e) = 0;
 
@@ -226,13 +227,13 @@ constexpr size_t CompPool2Base::size() const noexcept
     return dense_count;
 }
 
-inline void CompPool2Base::patch(Entity e, GTick tick) noexcept
+inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
 {
     const DIndex di = dense_index_get(e);
     if (!comps[di].comp)
         return;
 
-    dense_patch(di, tick);
+    dense_patch(di, (*tick)++);
     on_patched.Emit(*world, e);
 }
 

@@ -62,7 +62,7 @@ void* World::comp_add(Entity e, GUid guid)
     if (!pool)
         return nullptr;
 
-    return pool->raw_add(e, tick++);
+    return pool->raw_add(e, &tick);
 }
 
 void* World::comp_get_or_add(Entity e, GUid guid)

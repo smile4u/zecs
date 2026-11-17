@@ -25,11 +25,6 @@ struct CompPool2 : public CompPool2Base
     static constexpr uint32_t PAGE_SIZE = CompPool2PageSize<T>::value;
     static_assert(std::has_single_bit(PAGE_SIZE));
 
-    // raw_add() gives no arguments. Then only a type with
-    // a default constructor can be made.
-    template<typename... Args>
-    static constexpr bool can_add = std::is_default_constructible_v<T> || sizeof...(Args) > 0;
-
     ~CompPool2()
     {
         if constexpr (!std::is_empty_v<T>)
@@ -60,7 +55,7 @@ struct CompPool2 : public CompPool2Base
         return get(e);
     }
 
-    void* raw_add(Entity e, GTick tick) override
+    void* raw_add(Entity e, GTick* tick) override
     {
         return add(e, tick);
     }
@@ -84,12 +79,13 @@ struct CompPool2 : public CompPool2Base
         return static_cast<T*>(comps[di].comp);
     }
 
+    // Takes one tick from `tick`, but only when the component is added.
     template<typename... Args>
-    T* add(Entity e, GTick tick, Args&&... args) noexcept
+    T* add(Entity e, GTick* tick, Args&&... args) noexcept
     {
         assert(e != Entity_INVALID);
 
-        if constexpr (can_add<Args...>)
+        if constexpr (std::is_default_constructible_v<T> || sizeof...(Args) > 0)
         {
             const DIndex di = dense_add(e);
 
@@ -105,13 +101,15 @@ struct CompPool2 : public CompPool2Base
 
             dense[di] = e;
             comps[di].comp = comp;
-            dense_patch(di, tick);
+            dense_patch(di, (*tick)++);
 
             on_added.Emit(*world, e);
             return comp;
         }
         else
         {
+            // raw_add() gives no arguments, and this type
+            // has no default constructor.
             return nullptr;
         }
     }
@@ -123,10 +121,8 @@ struct CompPool2 : public CompPool2Base
         if (comp)
             return std::make_pair(comp, false);
 
-        if constexpr (can_add<Args...>)
-            return std::make_pair(add(e, (*tick)++, std::forward<Args>(args)...), true);
-        else
-            return std::make_pair(nullptr, false);
+        comp = add(e, tick, std::forward<Args>(args)...);
+        return std::make_pair(comp, comp != nullptr);
     }
 
     inline bool remove(Entity e) noexcept

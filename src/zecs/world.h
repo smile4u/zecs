@@ -274,7 +274,8 @@ inline CompPool2Base* World::comp_pool_get(GUid guid)
 
 inline CompPool2Base* World::comp_pool_get_impl(CUidIndex cindex)
 {
-    return (cindex < comp_pools.size()) ? comp_pools[cindex].get() : nullptr;
+    const size_t index = static_cast<size_t>(cindex);
+    return (index < comp_pools.size()) ? comp_pools[index].get() : nullptr;
 }
 
 template<typename T>
@@ -391,7 +392,8 @@ inline EventDequeBase* World::event_deque_get(GUid guid)
 
 inline EventDequeBase* World::event_pool_get_impl(EUidIndex eindex)
 {
-    return (eindex < event_deques.size()) ? event_deques[eindex].get() : nullptr;
+    const size_t index = static_cast<size_t>(eindex);
+    return (index < event_deques.size()) ? event_deques[index].get() : nullptr;
 }
 
 template<typename T>

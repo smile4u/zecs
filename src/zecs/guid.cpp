@@ -15,14 +15,14 @@ std::unordered_map<GUid, T>& uid_index_map_instance()
 template<typename T>
 T uid_index_register(GUid guid)
 {
-    static T uid_index_counter = 0;
+    static uint32_t uid_index_counter = 0;
 
     auto& uid_index_map = uid_index_map_instance<T>();
     auto it = uid_index_map.find(guid);
     if (it != uid_index_map.end())
         return it->second;
 
-    T new_index = uid_index_counter++;
+    T new_index = static_cast<T>(uid_index_counter++);
     uid_index_map[guid] = new_index;
     return new_index;
 }

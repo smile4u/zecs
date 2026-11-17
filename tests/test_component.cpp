@@ -2,6 +2,8 @@
 
 #include "test_common_api.h"
 
+#include <type_traits>
+
 namespace
 {
 // Its constructor adds the same component to one more entity.
@@ -33,6 +35,11 @@ struct EmptyWithDtor
 
 // Covers typed and runtime component operations on a populated world:
 // add/get/get_or_add/remove, singleton helpers, pool lifecycle and destruction behavior.
+// Type numbers must be separate enum types (see guid.h).
+static_assert(std::is_enum_v<zecs::CUidIndex>);
+static_assert(std::is_enum_v<zecs::EUidIndex>);
+static_assert(!std::is_same_v<zecs::CUidIndex, zecs::EUidIndex>);
+
 TEST_CASE("component_api")
 {
     test::TrackedLifetime::reset();

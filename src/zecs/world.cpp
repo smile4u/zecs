@@ -75,8 +75,9 @@ void* World::comp_get_or_add(Entity e, GUid guid)
     return res.first;
 }
 
-CompPool2Base* World::comp_pool_add(CUidIndex index, CompPool2CreateFn create_fn)
+CompPool2Base* World::comp_pool_add(CUidIndex cindex, CompPool2CreateFn create_fn)
 {
+    const size_t index = static_cast<size_t>(cindex);
     if (index >= comp_pools.size())
         comp_pools.resize(index + 1);
 
@@ -88,8 +89,9 @@ CompPool2Base* World::comp_pool_add(CUidIndex index, CompPool2CreateFn create_fn
     return comp_pools[index].get();
 }
 
-EventDequeBase* World::event_pool_add(EUidIndex index, EventDequeCreateFn create_fn)
+EventDequeBase* World::event_pool_add(EUidIndex eindex, EventDequeCreateFn create_fn)
 {
+    const size_t index = static_cast<size_t>(eindex);
     if (index >= event_deques.size())
         event_deques.resize(index + 1);
 

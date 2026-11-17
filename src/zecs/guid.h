@@ -17,11 +17,13 @@ constexpr GUid GUid_INVALID = static_cast<GUid>(0);
 template<typename... T>
 using GUidGroup = std::array<zecs::GUid, sizeof...(T)>;
 
-using CUidIndex = uint32_t;
-using EUidIndex = uint32_t;
+// Enum, not uint32_t: a write to an int field cannot change an enum value,
+// so the compiler can find the pool once before a loop.
+enum class CUidIndex : uint32_t;
+enum class EUidIndex : uint32_t;
 
-constexpr CUidIndex CUidIndex_INVALID = 0xFFFFFFFF;
-constexpr EUidIndex EUidIndex_INVALID = 0xFFFFFFFF;
+constexpr CUidIndex CUidIndex_INVALID = static_cast<CUidIndex>(0xFFFFFFFF);
+constexpr EUidIndex EUidIndex_INVALID = static_cast<EUidIndex>(0xFFFFFFFF);
 
 template<typename T>
 inline CUidIndex cuidIndex = cuid_index_register(globalUid<T>);

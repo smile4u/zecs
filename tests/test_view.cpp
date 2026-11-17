@@ -384,6 +384,39 @@ TEST_CASE("view_api")
         CHECK(visited[2] == e3);
     }
 
+    SUBCASE("view_comps keeps its end when end() is called again after the pool grows")
+    {
+        // A loop that calls end() on every step must stop at the same place as
+        // a range-for. Slots added during the pass are not visited.
+        zecs::World world("grow-during-comps");
+        const zecs::Entity e1 = world.entity_add();
+        const zecs::Entity e2 = world.entity_add();
+        REQUIRE(world.comp_add<test::Position>(e1, 1, 1) != nullptr);
+        REQUIRE(world.comp_add<test::Position>(e2, 2, 2) != nullptr);
+
+        auto view = world.view_comps<test::Position>();
+        std::vector<zecs::Entity> visited;
+        for (auto it = view.begin(); it != view.end(); ++it)
+        {
+            visited.push_back(*it);
+            if (visited.size() == 1)
+            {
+                const zecs::Entity removed = world.entity_add();
+                const zecs::Entity kept = world.entity_add();
+                REQUIRE(world.comp_add<test::Position>(removed, 8, 8) != nullptr);
+                REQUIRE(world.comp_add<test::Position>(kept, 9, 9) != nullptr);
+                REQUIRE(world.comp_remove<test::Position>(removed));
+            }
+
+            REQUIRE(visited.size() <= 2);
+        }
+
+        REQUIRE(visited.size() == 2);
+        CHECK(visited[0] == e1);
+        CHECK(visited[1] == e2);
+        CHECK(test::collect_entities(view).size() == 3);
+    }
+
     SUBCASE("view_comps visits components that reuse freed slots during traversal")
     {
         // The pool free list hands back a slot freed mid-pass; the reused slot is

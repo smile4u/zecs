@@ -48,30 +48,40 @@ struct CompPool2Base
     using Patches = std::vector<PatchNode>;
     using Sparse = std::vector<DIndex>;
 
+    // Goes through the entities of one pool.
+    // The end is saved when the pass starts: slots added during the pass
+    // are not visited, also when end() is called again.
     struct EntityIt
     {
-        // Zero-index marker for empty ranges and exhausted group iterators.
-        static inline EntityIt sentinel() noexcept { return EntityIt(DIndex_NONE); }
+        // The end iterator.
+        inline EntityIt() noexcept = default;
 
-        inline bool operator==(const EntityIt& other) const noexcept { return index == other.index; }
-        inline bool operator!=(const EntityIt& other) const noexcept { return index != other.index; }
+        // `>=` is the opposite of the check in next_matched(),
+        // so the compiler joins the two checks into one.
+        inline bool at_end() const noexcept { return index >= dense_size; }
+
+        // Two end iterators are always equal, also from different passes.
+        inline bool operator==(const EntityIt& other) const noexcept
+        {
+            // `&` and `|` always compute both sides, so there are no jumps
+            // like with `&&` and `||`. It is faster in the loop. It is safe
+            // here: both sides are plain bool. Example: (a == b) & (c | d).
+            // It is not safe when the right side needs the left one: p && p->x.
+            return (at_end() == other.at_end()) & (at_end() | (index == other.index));
+        }
+
+        inline bool operator!=(const EntityIt& other) const noexcept { return !(*this == other); }
         inline EntityIt& operator++() noexcept { index++; next_matched(); return *this; }
         inline Entity operator*() const noexcept { return dense->operator[](index); }
-        inline DIndex index_get() const noexcept { return index; }
 
     private:
         friend struct CompPool2Base;
 
-        inline EntityIt(DIndex index_) noexcept
-            : index(index_)
-            , dense_size(0)
-            , dense(nullptr)
-        { }
-
-        inline EntityIt(DIndex index_, const Dense* dense_) noexcept
-            : index(index_)
-            , dense_size(static_cast<DIndex>(dense_->size()))
+        // Slot 0 is a permanent guard, so the first real slot is 1.
+        inline EntityIt(const Dense* dense_) noexcept
+            : index(1)
             , dense(dense_)
+            , dense_size(static_cast<DIndex>(dense_->size()))
         {
             next_matched();
         }
@@ -81,9 +91,11 @@ struct CompPool2Base
             while (index < dense_size && dense->operator[](index) == Entity_INVALID) index++;
         }
 
-        DIndex index;
-        DIndex dense_size;
-        const Dense* dense;
+        // The pointer is between the two numbers on purpose. Side by side they
+        // are packed into one register, and that makes the loop about 2x slower.
+        DIndex index = 0;
+        const Dense* dense = nullptr;
+        DIndex dense_size = 0;
     };
 
     // Goes through the patch list from new to old.
@@ -170,9 +182,7 @@ struct CompPool2Base
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
     virtual bool raw_remove(Entity e) = 0;
 
-    // Slot 0 is a permanent guard; even an empty pool has dense.size() == 1.
-    inline EntityIt entities_begin() const noexcept { return EntityIt(1, &dense); }
-    inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
+    inline EntityIt entities_begin() const noexcept { return EntityIt(&dense); }
 
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
     inline PatchIt patches_end() const noexcept { return PatchIt(); }

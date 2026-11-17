@@ -20,8 +20,8 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
     {
         using InternalIt = CompPool2Base::EntityIt;
 
-        inline It() noexcept : it(InternalIt::sentinel()), it_end(InternalIt::sentinel()), view(nullptr) { }
-        inline It(InternalIt it_, InternalIt it_end_, const ViewCompGroupRt* view_) noexcept : it(it_), it_end(it_end_), view(view_) { next_matched(); }
+        inline It() noexcept = default;
+        inline It(InternalIt it_, const ViewCompGroupRt* view_) noexcept : it(it_), view(view_) { next_matched(); }
         inline It& operator++() noexcept { ++it; next_matched(); return *this; }
         inline bool operator==(const It& other) const noexcept { return it == other.it; }
         inline bool operator!=(const It& other) const noexcept { return !(*this == other); }
@@ -29,8 +29,7 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
 
     private:
         InternalIt it;
-        InternalIt it_end;
-        const ViewCompGroupRt* view;
+        const ViewCompGroupRt* view = nullptr;
 
         void next_matched() noexcept;
     };

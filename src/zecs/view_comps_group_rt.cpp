@@ -54,7 +54,7 @@ ViewCompGroupRt::It ViewCompGroupRt::begin() const noexcept
     if (lead == nullptr)
         return It();
 
-    return It(lead->entities_begin(), lead->entities_end(), this);
+    return It(lead->entities_begin(), this);
 }
 
 void ViewCompGroupRt::It::next_matched() noexcept
@@ -62,24 +62,16 @@ void ViewCompGroupRt::It::next_matched() noexcept
     // begin() guarantees a nonempty list of existing pools. Resolve storage
     // once per advance, rather than checking the public has() preconditions
     // and the inline/heap alternative again for every rejected candidate.
-    if (it != it_end)
+    const auto* ptr = view->pool_data();
+    const size_t count = view->count;
+    for (; !it.at_end(); ++it)
     {
-        const auto* ptr = view->pool_data();
-        const size_t count = view->count;
-        do
-        {
-            const Entity e = *it;
-            size_t i = 1;
-            while (i < count && ptr[i]->contains(e)) ++i;
-            if (i == count)
-                return;
-
-            ++it;
-        } while (it != it_end);
+        const Entity e = *it;
+        size_t i = 1;
+        while (i < count && ptr[i]->contains(e)) ++i;
+        if (i == count)
+            return;
     }
-
-    // All exhausted RT iterators share the zero-index sentinel.
-    it = InternalIt::sentinel();
 }
 
 } // namespace zecs

@@ -15,8 +15,8 @@ struct ViewComps
 
     inline ViewComps(const CompPool2Base* pool_) : pool(pool_) { }
     inline bool empty() { return (pool) ? pool->empty() : true; }
-    inline It begin() { return (pool) ? pool->entities_begin() : It::sentinel(); };
-    inline It end() { return (pool) ? pool->entities_end() : It::sentinel(); };
+    inline It begin() { return (pool) ? pool->entities_begin() : It(); };
+    inline It end() { return It(); };
 
 private:
     const CompPool2Base* pool;

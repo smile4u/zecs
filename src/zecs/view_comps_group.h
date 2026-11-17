@@ -23,31 +23,20 @@ struct ViewCompGroup2 : private ViewCompGroupBase
     {
         using InternalIt = CompPool2Base::EntityIt;
 
-        inline It() noexcept : it(InternalIt::sentinel()), it_end(DIndex_NONE) { }
-        inline It(InternalIt it_, InternalIt it_end_, const ViewCompGroup2* view_) noexcept : it(it_), it_end(it_end_.index_get())
+        inline It() noexcept = default;
+        inline It(InternalIt it_, const ViewCompGroup2* view_) noexcept : it(it_)
         {
             if constexpr (POOL_COUNT > 1)
                 view = view_;
             next_matched();
         }
         inline It& operator++() noexcept { ++it; next_matched(); return *this; }
-        inline bool operator==(const It& other) const noexcept
-        {
-            const bool at_end = it.index_get() == it_end;
-            const bool other_at_end = other.it.index_get() == other.it_end;
-            // Keep traversal state invariant, including at exhaustion. Bitwise
-            // boolean operations keep arbitrary comparisons branch-free; a
-            // known end iterator reduces this to the snapshot-bound check.
-            return (at_end == other_at_end) & (at_end | (it == other.it));
-        }
+        inline bool operator==(const It& other) const noexcept { return it == other.it; }
         inline bool operator!=(const It& other) const noexcept { return !(*this == other); }
         inline Entity operator*() const noexcept { return *it; }
 
     private:
         InternalIt it;
-        // A scalar bound avoids storing a second full EntityIt. Keeping it
-        // separate also lets the optimizer hoist it out of the traversal loop.
-        DIndex it_end;
         struct NoView {};
         [[no_unique_address]] std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup2*> view{};
 
@@ -56,7 +45,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
             // begin() already established that every pool exists. A one-pool
             // group needs no membership filtering at all.
             if constexpr (POOL_COUNT > 1)
-                while (it.index_get() != it_end && !view->template matches<1>(*it)) { ++it; }
+                while (!it.at_end() && !view->template matches<1>(*it)) { ++it; }
         }
     };
 
@@ -77,7 +66,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
             return It();
 
         const auto* lead = pools[0];
-        return It(lead->entities_begin(), lead->entities_end(), this);
+        return It(lead->entities_begin(), this);
     }
 
     // The bound belongs to the begin iterator, so even repeated end() calls

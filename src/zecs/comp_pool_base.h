@@ -184,6 +184,7 @@ protected:
     ZECS_EXPORT DIndex dense_add(Entity e, GTick tick) noexcept;
     ZECS_EXPORT void dense_rem(DIndex index) noexcept;
     ZECS_EXPORT void dense_patch(DIndex index, GTick tick) noexcept;
+    ZECS_EXPORT void patched_emit(Entity e) noexcept;
 
     World* world = nullptr;
 
@@ -216,7 +217,11 @@ inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
         return;
 
     dense_patch(di, (*tick)++);
-    on_patched.Emit(*world, e);
+
+    // The loop over listeners is not inline, so patch() stays small
+    // and the compiler puts it inside loops.
+    if (!on_patched.Empty())
+        patched_emit(e);
 }
 
 inline GTick CompPool2Base::patch_get(Entity e) const noexcept

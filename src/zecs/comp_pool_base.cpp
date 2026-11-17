@@ -120,4 +120,9 @@ void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept
 
     ticks[patch_head] = tick;
 }
+
+void CompPool2Base::patched_emit(Entity e) noexcept
+{
+    on_patched.Emit(*world, e);
+}
 } // namespace zecs

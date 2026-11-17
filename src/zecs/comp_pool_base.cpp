@@ -11,7 +11,7 @@ CompPool2Base::CompPool2Base()
 {
     // Add slot 0. It is never used for a real component:
     // its entity is Entity_INVALID and its comp is nullptr forever.
-    // So index 0 can mean "no slot", and get() needs no `if`.
+    // So index 0 can mean "no slot".
     dense.push_back(Entity_INVALID);
     comps.push_back(CompNode());
     patches.push_back(PatchNode());

@@ -73,11 +73,11 @@ struct CompPool2 : public CompPool2Base
 
     inline T* get(Entity e) const noexcept
     {
-        // Fast path: no `if` here. When the entity has no component, di is 0.
-        // Slot 0 of dense/comps is never used for a real component and its
-        // comp is always nullptr, so this line returns nullptr by itself.
+        // The address is computed from di. Reading comps[di].comp gives the
+        // same pointer, but it is one more read from a big array, and that
+        // read often misses the cache. `pages` is small and stays in cache.
         const DIndex di = dense_index_get(e);
-        return static_cast<T*>(comps[di].comp);
+        return (di != DIndex_NONE) ? comp_slot(di) : nullptr;
     }
 
     // Takes one tick from `tick`, but only when the component is added.
@@ -96,8 +96,7 @@ struct CompPool2 : public CompPool2Base
                 static_assert(std::is_trivially_constructible_v<T, Args...>,
                     "a tag is made without a constructor call, so it takes no arguments");
 
-                // Not a real object: the pointer only says "the tag is here".
-                comp = reinterpret_cast<T*>(this);
+                comp = comp_slot(di);
             }
             else
             {
@@ -183,7 +182,11 @@ private:
     // exist because comp_slot_ensure() is called for every live di on add().
     inline T* comp_slot(DIndex di) const noexcept
     {
-        return &pages[di >> PAGE_BITS][di & PAGE_MASK];
+        // A tag has no object: the pointer only says "the tag is here".
+        if constexpr (is_tag_component<T>)
+            return reinterpret_cast<T*>(const_cast<CompPool2*>(this));
+        else
+            return &pages[di >> PAGE_BITS][di & PAGE_MASK];
     }
 
     // Allocates the page covering di if needed and returns the raw slot.

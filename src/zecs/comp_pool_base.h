@@ -32,8 +32,7 @@ struct CompPool2Base
     };
 
     // Links of the patch list. They are not inside CompNode on purpose:
-    // CompNode stays 16 bytes, and get() is faster with 16 bytes than with 24.
-    // The free list does not use these links (it uses CompNode::free_next).
+    // the free list does not use these links (it uses CompNode::free_next).
     // So a removed slot keeps its old links, and a PatchIt that stands on it
     // can still move on (see dense_rem).
     struct PatchNode

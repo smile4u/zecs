@@ -15,13 +15,11 @@ CompPool2Base::CompPool2Base()
     dense.push_back(Entity_INVALID);
     ticks.push_back(GTick_INVALID);
     patches.push_back(PatchNode());
-    dense_size = DIndex_FIRST;
 }
 
-DIndex CompPool2Base::dense_add(Entity e) noexcept
+DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
 {
-    DIndex di = DIndex_NONE;
-    DIndex si = static_cast<DIndex>(e);
+    const DIndex si = static_cast<DIndex>(e);
 
     // Grow the sparse table lazily to cover this entity; dense_index_get() pays
     // the bounds check for entities that never got a component in this pool.
@@ -33,29 +31,33 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
 
     assert(sparse[si] == DIndex_NONE);
 
-    if (free_head == DIndex_NONE)
-    {
-        dense_size = dense.size() + 1;
-        dense.resize(dense_size);
-        ticks.resize(dense_size);
-        patches.resize(dense_size);
+    // A new component is the newest one: it becomes the head of the patch list.
+    const PatchNode links{ patch_head, DIndex_NONE };
 
-        assert(dense_size < std::numeric_limits<DIndex>::max());
-        di = dense_size - 1;
+    DIndex di = free_head;
+    if (di == DIndex_NONE)
+    {
+        di = static_cast<DIndex>(dense.size());
+        assert(di < std::numeric_limits<DIndex>::max());
+
+        dense.push_back(e);
+        ticks.push_back(tick);
+        patches.push_back(links);
     }
     else
     {
-        di = free_head;
         free_head = static_cast<DIndex>(ticks[di]);
+
+        dense[di] = e;
+        ticks[di] = tick;
+        patches[di] = links;
     }
 
-    assert(dense.size() == ticks.size());
-    assert(di < dense.size());
+    if (patch_head != DIndex_NONE)
+        patches[patch_head].prev = di;
 
+    patch_head = di;
     sparse[si] = di;
-    dense[di] = e;
-    ticks[di] = GTick_INVALID;
-    patches[di] = PatchNode();
     dense_count++;
 
     return di;

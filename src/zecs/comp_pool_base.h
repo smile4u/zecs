@@ -180,7 +180,8 @@ protected:
     constexpr DIndex sparse_index_get(Entity e) const noexcept;
     constexpr DIndex dense_index_get(Entity e) const noexcept;
 
-    ZECS_EXPORT DIndex dense_add(Entity e) noexcept;
+    // Takes a slot, saves the tick and puts the slot at the head of the patch list.
+    ZECS_EXPORT DIndex dense_add(Entity e, GTick tick) noexcept;
     ZECS_EXPORT void dense_rem(DIndex index) noexcept;
     ZECS_EXPORT void dense_patch(DIndex index, GTick tick) noexcept;
 
@@ -190,7 +191,6 @@ protected:
     Ticks ticks;
     Patches patches;
     size_t dense_count = 0;
-    size_t dense_size = 0;
 
     Sparse sparse;
     size_t sparse_size = 0;

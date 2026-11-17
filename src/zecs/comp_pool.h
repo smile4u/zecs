@@ -88,7 +88,7 @@ struct CompPool2 : public CompPool2Base
 
         if constexpr (std::is_default_constructible_v<T> || sizeof...(Args) > 0)
         {
-            const DIndex di = dense_add(e);
+            const DIndex di = dense_add(e, (*tick)++);
 
             T* comp;
             if constexpr (is_tag_component<T>)
@@ -102,9 +102,6 @@ struct CompPool2 : public CompPool2Base
             {
                 comp = ::new (comp_slot_ensure(di)) T(std::forward<Args>(args)...);
             }
-
-            dense[di] = e;
-            dense_patch(di, (*tick)++);
 
             on_added.Emit(*world, e);
             return comp;

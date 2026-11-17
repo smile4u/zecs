@@ -122,4 +122,29 @@ TEST_CASE("view_patched")
         CHECK(entities[0] == fx.third);
         CHECK(entities[1] == added);
     }
+
+    SUBCASE("view goes from the newest tick to the oldest after add, patch, remove and re-add")
+    {
+        const zecs::Entity added = fx.world.entity_add();
+
+        fx.world.comp_patch<test::Position>(fx.first);
+        fx.world.comp_remove<test::Position>(fx.second);
+        fx.world.comp_add<test::Position>(added, 40, 40);       // takes the free slot
+        fx.world.comp_add<test::Position>(fx.second, 50, 50);   // takes a new slot
+
+        std::vector<zecs::Entity> entities;
+        std::vector<zecs::GTick> ticks;
+        auto view = fx.world.view_patched_comps<test::Position>(zecs::TickContext(0));
+        for (auto it = view.begin(); it != view.end(); ++it)
+        {
+            entities.push_back(*it);
+            ticks.push_back(it.tick());
+        }
+
+        const std::vector<zecs::Entity> expected{ fx.second, added, fx.first, fx.third };
+        CHECK(entities == expected);
+
+        for (size_t i = 1; i < ticks.size(); ++i)
+            CHECK(ticks[i - 1] > ticks[i]);
+    }
 }

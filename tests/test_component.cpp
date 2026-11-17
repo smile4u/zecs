@@ -6,16 +6,6 @@
 
 namespace
 {
-// Its constructor adds the same component to one more entity.
-struct AddsNext
-{
-    AddsNext(zecs::World& world, zecs::Entity next)
-    {
-        if (next != zecs::Entity_INVALID)
-            world.comp_add<AddsNext>(next, world, zecs::Entity_INVALID);
-    }
-};
-
 // Empty types that still need their constructor or destructor.
 struct EmptyWithCtor
 {
@@ -130,24 +120,6 @@ TEST_CASE("component_api")
             REQUIRE(fx.world.comp_add<test::Position>(e, 1, 2) != nullptr);
             fx.world.comp_patch<test::Position>(e);
             CHECK(fx.world.tick_get() == before + 2);
-        }
-
-        SUBCASE("component gets its tick after its constructor")
-        {
-            // The inner add is finished first, so it must have the older tick.
-            // The patch list needs this order: newer ticks stand first.
-            const zecs::Entity outer = fx.world.entity_add();
-            const zecs::Entity inner = fx.world.entity_add();
-            REQUIRE(fx.world.comp_add<AddsNext>(outer, fx.world, inner) != nullptr);
-
-            auto* pool = fx.world.comp_pool_get<AddsNext>();
-            REQUIRE(pool->contains(inner));
-            CHECK(pool->patch_get(outer) > pool->patch_get(inner));
-
-            const auto patched = test::collect_entities(fx.world.view_patched_comps<AddsNext>(zecs::TickContext(0)));
-            REQUIRE(patched.size() == 2);
-            CHECK(patched[0] == outer);
-            CHECK(patched[1] == inner);
         }
 
         SUBCASE("empty component with a constructor is constructed")

@@ -24,7 +24,6 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
         inline It(InternalIt it_, const ViewCompGroupRt* view_) noexcept : it(it_), view(view_) { next_matched(); }
         inline It& operator++() noexcept { ++it; next_matched(); return *this; }
         inline bool operator==(const It& other) const noexcept { return it == other.it; }
-        inline bool operator!=(const It& other) const noexcept { return !(*this == other); }
         inline Entity operator*() const noexcept { return *it; }
 
     private:

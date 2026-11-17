@@ -32,7 +32,6 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         }
         inline It& operator++() noexcept { ++it; next_matched(); return *this; }
         inline bool operator==(const It& other) const noexcept { return it == other.it; }
-        inline bool operator!=(const It& other) const noexcept { return !(*this == other); }
         inline Entity operator*() const noexcept { return *it; }
 
     private:

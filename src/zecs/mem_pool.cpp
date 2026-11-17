@@ -9,7 +9,7 @@ void* mem_pool_data_alloc(size_t size, size_t align)
     return ::operator new(size, std::align_val_t(align));
 }
 
-ZECS_EXPORT void mem_pool_data_free(void* data, size_t align)
+void mem_pool_data_free(void* data, size_t align)
 {
     ::operator delete(data, std::align_val_t(align));
 }

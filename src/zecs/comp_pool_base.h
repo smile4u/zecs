@@ -53,7 +53,6 @@ struct CompPool2Base
             return (at_end() == other.at_end()) & (at_end() | (index == other.index));
         }
 
-        inline bool operator!=(const EntityIt& other) const noexcept { return !(*this == other); }
         inline EntityIt& operator++() noexcept { index++; next_matched(); return *this; }
         inline Entity operator*() const noexcept { return dense->operator[](index); }
 
@@ -95,7 +94,6 @@ struct CompPool2Base
         }
 
         inline bool operator==(const PatchIt& other) const noexcept { return head == other.head; }
-        inline bool operator!=(const PatchIt& other) const noexcept { return head != other.head; }
         inline PatchIt& operator++() noexcept { move_to(next); return *this; }
         inline Entity operator*() const noexcept { return pool->dense[head]; }
         inline GTick tick() const noexcept { return pool->ticks[head]; }
@@ -247,6 +245,6 @@ constexpr DIndex CompPool2Base::dense_index_get(Entity e) const noexcept
 {
     const DIndex si = sparse_index_get(e);
     return (si < sparse_size) ? sparse[si] : DIndex_NONE;
-};
+}
 
 } // namespace zecs

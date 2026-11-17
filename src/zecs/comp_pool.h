@@ -132,36 +132,11 @@ struct CompPool2 : public CompPool2Base
         return true;
     }
 
-    /*
-    bool clone(Entity e, const T* src, GTick tick)
-    {
-        if constexpr (std::is_copy_assignable<T>::value)
-        {
-            auto it = comps.find(e);
-            if (it == comps.end())
-            {
-                T* dst = add(e, tick);
-                *dst = *src;
-            }
-            else
-            {
-                T* dst = static_cast<T*>(it->second.ptr.get());
-                *dst = *src;
-                patch(e, tick);
-            }
-
-            return true;
-        }
-        
-        return false;
-    }
-    */
-
 private:
     // Component storage is inline and indexed by the dense index (di), so that
     // the data lives in di-order parallel to dense instead of being
     // pointer-chased through a separate allocator.
-    static constexpr uint32_t PAGE_BITS = std::popcount(PAGE_SIZE - 1);
+    static constexpr uint32_t PAGE_BITS = std::countr_zero(PAGE_SIZE);
     static constexpr uint32_t PAGE_MASK = PAGE_SIZE - 1;
 
     // Returns the slot for an existing dense index. The page is guaranteed to

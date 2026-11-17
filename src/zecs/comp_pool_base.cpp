@@ -21,7 +21,7 @@ CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_)
 
 DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
 {
-    const DIndex si = static_cast<DIndex>(e);
+    const DIndex si = sparse_index_get(e);
 
     // Grow the sparse table lazily to cover this entity; dense_index_get() pays
     // the bounds check for entities that never got a component in this pool.
@@ -72,7 +72,7 @@ void CompPool2Base::dense_rem(DIndex di) noexcept
 
     const DIndex old_prev = patches[di].prev;
     const DIndex old_next = patches[di].next;
-    const DIndex si = static_cast<DIndex>(dense[di]);
+    const DIndex si = sparse_index_get(dense[di]);
 
     sparse[si] = DIndex_NONE;
 

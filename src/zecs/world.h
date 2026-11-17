@@ -285,8 +285,7 @@ CompPool2<T>* World::comp_pool_get_or_add()
     CompPool2Base* ret = comp_pool_get_impl(cindex);
     if (!ret)
     {
-        static CompPool2CreateFn create_fn = []() -> CompPool2Base* { return new CompPool2<T>(); };
-        ret = comp_pool_add(cindex, create_fn);
+        ret = comp_pool_add(cindex, []() -> CompPool2Base* { return new CompPool2<T>(); });
     }
 
     return static_cast<CompPool2<T>*>(ret);

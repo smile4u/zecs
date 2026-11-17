@@ -122,7 +122,6 @@
 - `world_unique_id_counter` — `src/zecs/world.cpp`.
 - `DbgInfo` / `DbgPtr` не используются; `ZECS_DEBUG` определяется безусловно — `src/zecs/debug.h`.
 - Отключённый через `#if 0` API `view_patched_group` — `src/zecs/world.h`.
-- Закомментированный `clone` — `src/zecs/comp_pool.h`.
 
 ### 18. Настройка CMake
 - **Место:** `CMakeLists.txt`.

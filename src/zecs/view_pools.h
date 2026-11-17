@@ -12,7 +12,6 @@ struct ViewPoolsIter
     inline ViewPoolsIter(InternalIt it_) : it(it_) { }
     inline ViewPoolsIter& operator++() { ++it; return *this; }
     inline bool operator==(const ViewPoolsIter& other) const { return it == other.it; }
-    inline bool operator!=(const ViewPoolsIter& other) const { return it != other.it; }
     inline CompPool2Base* operator*() const { return *it; }
 
 private:

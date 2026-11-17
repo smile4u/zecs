@@ -111,6 +111,7 @@ struct ZECS_EXPORT World
 
     // ------------------------------------------
     // Events API
+    // DRAFT: not finished and not reviewed yet. See known_issues.md.
     // ------------------------------------------
 
     template<typename T>

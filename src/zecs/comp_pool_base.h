@@ -17,11 +17,10 @@ struct CompPool2Base
 {
     struct CompNode
     {
-        // Live slot: comp points at the component (nullptr only for the guard slot
-        // and transiently inside remove()). Dead slot: free_next is the next
-        // free-list index, DIndex_NONE ends the list. Liveness is tracked by
-        // dense[di] != Entity_INVALID, so the active member is always known from
-        // context and no type-punning happens.
+        // Used slot: comp points to the component. It is nullptr only in slot 0
+        // and for a short time inside remove().
+        // Removed slot: free_next is the next free slot, DIndex_NONE ends the list.
+        // dense[di] tells which one is valid: Entity_INVALID means removed.
         union
         {
             void* comp;
@@ -32,11 +31,11 @@ struct CompPool2Base
         CompNode() noexcept : comp(nullptr) {}
     };
 
-    // Patch-list linkage, kept out of `CompNode` so the hot `get()`
-    // path indexes a 16-byte (power-of-two) stride instead of 24 bytes.
-    // The free-list does NOT use these patches: it is threaded through
-    // CompNode::free_next of dead slots, so patches[] of a dead slot stays a stable
-    // waypoint for in-flight PatchIt iterators (see dense_rem).
+    // Links of the patch list. They are not inside CompNode on purpose:
+    // CompNode stays 16 bytes, and get() is faster with 16 bytes than with 24.
+    // The free list does not use these links (it uses CompNode::free_next).
+    // So a removed slot keeps its old links, and a PatchIt that stands on it
+    // can still move on (see dense_rem).
     struct PatchNode
     {
         DIndex next = DIndex_NONE;
@@ -158,7 +157,7 @@ struct CompPool2Base
         }
 
         GTick since = 0;
-        GTick cur_tick = GTick_INVALID; // tick of the current node
+        GTick cur_tick = GTick_INVALID; // tick of the current node; starts above any real tick
         const CompPool2Base* pool = nullptr;
         DIndex head = DIndex_NONE;
         DIndex next = DIndex_NONE; // link of the current node, saved before the loop body runs
@@ -203,14 +202,6 @@ protected:
 
     World* world = nullptr;
 
-    // dense/comps slot 0 is a permanent guard: dense[0] == Entity_INVALID
-    // and comps[0].comp == nullptr forever, never handed out by dense_add()
-    // and never pushed onto the free-list. This lets sparse/free_head/patch_head/
-    // PatchNode::next/prev use plain 0 to mean "no value", and lets
-    // get()/patch() index comps[di] unconditionally without a validity branch.
-    // Note: a dead slot's CompNode holds its free-list link in free_next (see
-    // dense_rem), so comp == nullptr means "no component" only for the guard
-    // and for slots reached via sparse[].
     Dense dense;
     Comps comps;
     Patches patches;

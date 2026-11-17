@@ -7,7 +7,9 @@
 namespace zecs
 {
 
-CompPool2Base::CompPool2Base()
+CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_)
+    : guid(guid_)
+    , type(type_)
 {
     // Add slot 0. It is never used for a real component:
     // its entity is Entity_INVALID forever.

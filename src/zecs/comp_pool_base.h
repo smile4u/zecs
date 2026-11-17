@@ -5,6 +5,7 @@
 #include "zecs/types.h"
 
 #include <cstddef>
+#include <typeinfo>
 #include <vector>
 
 #include <signal/Signal.h>
@@ -146,7 +147,7 @@ struct CompPool2Base
         DIndex next = DIndex_NONE; // link of the current node, saved before the loop body runs
     };
 
-    ZECS_EXPORT CompPool2Base();
+    ZECS_EXPORT CompPool2Base(GUid guid_, const std::type_info* type_);
     virtual ~CompPool2Base() = default;
 
     constexpr bool empty() const noexcept;
@@ -157,8 +158,6 @@ struct CompPool2Base
     void patch(Entity e, GTick* tick) noexcept;
     GTick patch_get(Entity e) const noexcept;
 
-    virtual GUid guid() const = 0;
-    virtual const std::type_info* type() const = 0;
     virtual void* raw_get(Entity e) const = 0;
     virtual void* raw_add(Entity e, GTick* tick) = 0;
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
@@ -169,6 +168,10 @@ struct CompPool2Base
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
     inline PatchIt patches_end() const noexcept { return PatchIt(); }
     inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? ticks[patch_head] < since : true; }
+
+    // The component type of this pool. Set once by CompPool2<T>.
+    const GUid guid;
+    const std::type_info* const type;
 
     CompPool2Signal on_added;
     CompPool2Signal on_removed;

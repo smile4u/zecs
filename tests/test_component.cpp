@@ -164,6 +164,16 @@ TEST_CASE("component_api")
             CHECK(EmptyWithDtor::gone == 3);
         }
 
+        SUBCASE("pool knows its component type")
+        {
+            const zecs::CompPool2Base* pool = fx.world.comp_pool_get(zecs::globalUid<test::Position>);
+            REQUIRE(pool != nullptr);
+
+            CHECK(pool == fx.world.comp_pool_get<test::Position>());
+            CHECK(pool->guid == zecs::globalUid<test::Position>);
+            CHECK(*pool->type == typeid(test::Position));
+        }
+
         SUBCASE("removing entity removes all its components")
         {
             fx.world.entity_remove(fx.removable_entity);

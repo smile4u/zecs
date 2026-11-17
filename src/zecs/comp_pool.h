@@ -26,6 +26,8 @@ struct CompPool2 : public CompPool2Base
     static constexpr uint32_t PAGE_SIZE = CompPool2PageSize<T>::value;
     static_assert(std::has_single_bit(PAGE_SIZE));
 
+    CompPool2() : CompPool2Base(globalUid<T>, &typeid(T)) {}
+
     ~CompPool2()
     {
         if constexpr (!is_tag_component<T>)
@@ -39,16 +41,6 @@ struct CompPool2 : public CompPool2Base
             for (T* page : pages)
                 mem_pool_data_free(page, alignof(T));
         }
-    }
-
-    const std::type_info* type() const override
-    {
-        return &typeid(T);
-    }
-
-    GUid guid() const override
-    {
-        return globalUid<T>;
     }
 
     void* raw_get(Entity e) const override

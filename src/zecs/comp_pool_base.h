@@ -15,26 +15,9 @@ using CompPool2Signal = Gallant::Signal2<World&, Entity>;
 
 struct CompPool2Base
 {
-    struct CompNode
-    {
-        // Used slot: comp points to the component. It is nullptr only in slot 0
-        // and for a short time inside remove().
-        // Removed slot: free_next is the next free slot, DIndex_NONE ends the list.
-        // dense[di] tells which one is valid: Entity_INVALID means removed.
-        union
-        {
-            void* comp;
-            DIndex free_next;
-        };
-        GTick tick = GTick_INVALID;
-
-        CompNode() noexcept : comp(nullptr) {}
-    };
-
-    // Links of the patch list. They are not inside CompNode on purpose:
-    // the free list does not use these links (it uses CompNode::free_next).
-    // So a removed slot keeps its old links, and a PatchIt that stands on it
-    // can still move on (see dense_rem).
+    // Links of the patch list. The free list does not use these links
+    // (it uses `ticks`). So a removed slot keeps its old links, and
+    // a PatchIt that stands on it can still move on (see dense_rem).
     struct PatchNode
     {
         DIndex next = DIndex_NONE;
@@ -42,7 +25,7 @@ struct CompPool2Base
     };
 
     using Dense = std::vector<Entity>;
-    using Comps = std::vector<CompNode>;
+    using Ticks = std::vector<GTick>;
     using Patches = std::vector<PatchNode>;
     using Sparse = std::vector<DIndex>;
 
@@ -114,7 +97,7 @@ struct CompPool2Base
         inline bool operator!=(const PatchIt& other) const noexcept { return head != other.head; }
         inline PatchIt& operator++() noexcept { move_to(next); return *this; }
         inline Entity operator*() const noexcept { return pool->dense[head]; }
-        inline GTick tick() const noexcept { return pool->comps[head].tick; }
+        inline GTick tick() const noexcept { return pool->ticks[head]; }
 
     private:
         // Moves to node `n`, or to the first good node after it.
@@ -132,11 +115,11 @@ struct CompPool2Base
                 // The next node must be older than the current one. If it is not,
                 // the loop body patched it or reused its slot, and its link goes
                 // back to the start of the list. Search from the head instead.
-                const GTick t = pool->comps[n].tick;
+                const GTick t = pool->ticks[n];
                 if (t >= cur_tick) [[unlikely]]
                 {
                     n = pool->patch_head;
-                    while (n != DIndex_NONE && pool->comps[n].tick >= cur_tick)
+                    while (n != DIndex_NONE && pool->ticks[n] >= cur_tick)
                         n = pool->patches[n].next;
 
                     continue;
@@ -185,7 +168,7 @@ struct CompPool2Base
 
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
     inline PatchIt patches_end() const noexcept { return PatchIt(); }
-    inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? comps[patch_head].tick < since : true; }
+    inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? ticks[patch_head] < since : true; }
 
     CompPool2Signal on_added;
     CompPool2Signal on_removed;
@@ -204,7 +187,7 @@ protected:
     World* world = nullptr;
 
     Dense dense;
-    Comps comps;
+    Ticks ticks;
     Patches patches;
     size_t dense_count = 0;
     size_t dense_size = 0;
@@ -229,7 +212,7 @@ constexpr size_t CompPool2Base::size() const noexcept
 inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
 {
     const DIndex di = dense_index_get(e);
-    if (!comps[di].comp)
+    if (di == DIndex_NONE)
         return;
 
     dense_patch(di, (*tick)++);
@@ -239,7 +222,7 @@ inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
 inline GTick CompPool2Base::patch_get(Entity e) const noexcept
 {
     const DIndex di = dense_index_get(e);
-    return comps[di].tick;
+    return ticks[di];
 }
 
 constexpr bool CompPool2Base::contains(Entity e) const noexcept

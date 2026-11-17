@@ -10,10 +10,10 @@ namespace zecs
 CompPool2Base::CompPool2Base()
 {
     // Add slot 0. It is never used for a real component:
-    // its entity is Entity_INVALID and its comp is nullptr forever.
+    // its entity is Entity_INVALID forever.
     // So index 0 can mean "no slot".
     dense.push_back(Entity_INVALID);
-    comps.push_back(CompNode());
+    ticks.push_back(GTick_INVALID);
     patches.push_back(PatchNode());
     dense_size = DIndex_FIRST;
 }
@@ -37,7 +37,7 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
     {
         dense_size = dense.size() + 1;
         dense.resize(dense_size);
-        comps.resize(dense_size);
+        ticks.resize(dense_size);
         patches.resize(dense_size);
 
         assert(dense_size < std::numeric_limits<DIndex>::max());
@@ -46,15 +46,15 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
     else
     {
         di = free_head;
-        free_head = comps[di].free_next;
+        free_head = static_cast<DIndex>(ticks[di]);
     }
 
-    assert(dense.size() == comps.size());
+    assert(dense.size() == ticks.size());
     assert(di < dense.size());
 
     sparse[si] = di;
     dense[di] = e;
-    comps[di] = CompNode();
+    ticks[di] = GTick_INVALID;
     patches[di] = PatchNode();
     dense_count++;
 
@@ -63,9 +63,8 @@ DIndex CompPool2Base::dense_add(Entity e) noexcept
 
 void CompPool2Base::dense_rem(DIndex di) noexcept
 {
-    assert(dense.size() == comps.size());
+    assert(dense.size() == ticks.size());
     assert(di < dense.size());
-    assert(comps[di].comp == nullptr);
 
     const DIndex old_prev = patches[di].prev;
     const DIndex old_next = patches[di].next;
@@ -83,11 +82,10 @@ void CompPool2Base::dense_rem(DIndex di) noexcept
         patch_head = old_next;
 
     dense[di] = Entity_INVALID;
-    // Push the slot onto the free-list through CompNode::free_next, NOT through
-    // patches[di]: patches[] of a dead slot intentionally keeps its stale patch-list
-    // linkage as a waypoint, so a PatchIt parked on this slot can still reach its
-    // historical successor instead of wandering into the free-list.
-    comps[di].free_next = free_head;
+    // The free list goes through ticks[], not through patches[]:
+    // a removed slot keeps its old patch links, so a PatchIt that
+    // stands on it can still move on.
+    ticks[di] = free_head;
 
     assert(dense_count > 0);
     dense_count--;
@@ -97,7 +95,7 @@ void CompPool2Base::dense_rem(DIndex di) noexcept
 
 void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept
 {
-    assert(di < comps.size());
+    assert(di < ticks.size());
 
     if (patch_head != di)
     {
@@ -118,6 +116,6 @@ void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept
         patch_head = di;
     }
 
-    comps[patch_head].tick = tick;
+    ticks[patch_head] = tick;
 }
 } // namespace zecs

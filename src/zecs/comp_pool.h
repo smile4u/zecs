@@ -73,9 +73,9 @@ struct CompPool2 : public CompPool2Base
 
     inline T* get(Entity e) const noexcept
     {
-        // The address is computed from di. Reading comps[di].comp gives the
-        // same pointer, but it is one more read from a big array, and that
-        // read often misses the cache. `pages` is small and stays in cache.
+        // The address is computed from di. A pointer stored for every slot
+        // would be one more read from a big array, and that read often
+        // misses the cache. `pages` is small and stays in cache.
         const DIndex di = dense_index_get(e);
         return (di != DIndex_NONE) ? comp_slot(di) : nullptr;
     }
@@ -104,7 +104,6 @@ struct CompPool2 : public CompPool2Base
             }
 
             dense[di] = e;
-            comps[di].comp = comp;
             dense_patch(di, (*tick)++);
 
             on_added.Emit(*world, e);
@@ -140,8 +139,6 @@ struct CompPool2 : public CompPool2Base
         if constexpr (!is_tag_component<T>)
             comp_slot(di)->~T();
 
-        comps[di].comp = nullptr;
-
         dense_rem(di);
         return true;
     }
@@ -173,7 +170,7 @@ struct CompPool2 : public CompPool2Base
 
 private:
     // Component storage is inline and indexed by the dense index (di), so that
-    // the data lives in di-order parallel to dense/comps instead of being
+    // the data lives in di-order parallel to dense instead of being
     // pointer-chased through a separate allocator.
     static constexpr uint32_t PAGE_BITS = std::popcount(PAGE_SIZE - 1);
     static constexpr uint32_t PAGE_MASK = PAGE_SIZE - 1;

@@ -12,9 +12,22 @@ struct AddsNext
         if (next != zecs::Entity_INVALID)
             world.comp_add<AddsNext>(next, world, zecs::Entity_INVALID);
     }
+};
 
-    // Not empty on purpose: the pool does not call constructors of empty types.
-    int value = 0;
+// Empty types that still need their constructor or destructor.
+struct EmptyWithCtor
+{
+    EmptyWithCtor() { ++made; }
+    explicit EmptyWithCtor(int count) { made += count; }
+
+    static inline int made = 0;
+};
+
+struct EmptyWithDtor
+{
+    ~EmptyWithDtor() { ++gone; }
+
+    static inline int gone = 0;
 };
 } // namespace
 
@@ -128,6 +141,48 @@ TEST_CASE("component_api")
             REQUIRE(patched.size() == 2);
             CHECK(patched[0] == outer);
             CHECK(patched[1] == inner);
+        }
+
+        SUBCASE("empty component with a constructor is constructed")
+        {
+            EmptyWithCtor::made = 0;
+            const zecs::Entity first = fx.world.entity_add();
+            const zecs::Entity second = fx.world.entity_add();
+
+            auto* a = fx.world.comp_add<EmptyWithCtor>(first);
+            CHECK(EmptyWithCtor::made == 1);
+
+            auto* b = fx.world.comp_add<EmptyWithCtor>(second, 5);
+            CHECK(EmptyWithCtor::made == 6);
+
+            // It is a normal component: every entity has its own object.
+            REQUIRE(a != nullptr);
+            REQUIRE(b != nullptr);
+            CHECK(a != b);
+            CHECK(fx.world.comp_get<EmptyWithCtor>(first) == a);
+        }
+
+        SUBCASE("empty component with a destructor is destroyed")
+        {
+            EmptyWithDtor::gone = 0;
+            {
+                zecs::World world("empty-with-dtor");
+                const zecs::Entity first = world.entity_add();
+                const zecs::Entity second = world.entity_add();
+                const zecs::Entity third = world.entity_add();
+                REQUIRE(world.comp_add<EmptyWithDtor>(first) != nullptr);
+                REQUIRE(world.comp_add<EmptyWithDtor>(second) != nullptr);
+                REQUIRE(world.comp_add<EmptyWithDtor>(third) != nullptr);
+
+                CHECK(world.comp_remove<EmptyWithDtor>(first));
+                CHECK(EmptyWithDtor::gone == 1);
+
+                world.entity_remove(second);
+                CHECK(EmptyWithDtor::gone == 2);
+            }
+
+            // The world destroys the component that is still alive.
+            CHECK(EmptyWithDtor::gone == 3);
         }
 
         SUBCASE("removing entity removes all its components")

@@ -108,7 +108,7 @@
 ## Технический долг
 
 ### 17. Неиспользуемый и отключённый код
-- `globalTick`, `TransparentHasher`, `TransparentEqualTo` — `src/zecs/types.h`.
+- `globalTick` — `src/zecs/types.h`; `TransparentHasher`, `TransparentEqualTo` — `src/zecs/traits.h`.
 - `world_unique_id_counter` — `src/zecs/world.cpp`.
 - `DbgInfo` / `DbgPtr` не используются; `ZECS_DEBUG` определяется безусловно — `src/zecs/debug.h`.
 - Отключённый через `#if 0` API `view_patched_group` — `src/zecs/world.h`.

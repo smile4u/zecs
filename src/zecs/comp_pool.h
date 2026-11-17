@@ -2,6 +2,7 @@
 
 #include "zecs/comp_pool_base.h"
 #include "zecs/mem_pool.h"
+#include "zecs/traits.h"
 #include "zecs/types.h"
 
 #include <bit>
@@ -27,7 +28,7 @@ struct CompPool2 : public CompPool2Base
 
     ~CompPool2()
     {
-        if constexpr (!std::is_empty_v<T>)
+        if constexpr (!is_tag_component<T>)
         {
             for (DIndex di = 0; di < dense.size(); ++di)
             {
@@ -90,8 +91,12 @@ struct CompPool2 : public CompPool2Base
             const DIndex di = dense_add(e);
 
             T* comp;
-            if constexpr (std::is_empty_v<T>)
+            if constexpr (is_tag_component<T>)
             {
+                static_assert(std::is_trivially_constructible_v<T, Args...>,
+                    "a tag is made without a constructor call, so it takes no arguments");
+
+                // Not a real object: the pointer only says "the tag is here".
                 comp = reinterpret_cast<T*>(this);
             }
             else
@@ -133,7 +138,7 @@ struct CompPool2 : public CompPool2Base
 
         on_removed.Emit(*world, e);
 
-        if constexpr (!std::is_empty_v<T>)
+        if constexpr (!is_tag_component<T>)
             comp_slot(di)->~T();
 
         comps[di].comp = nullptr;

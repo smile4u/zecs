@@ -42,24 +42,4 @@ struct TickContext
     float dt = 0.0f;
 };
 
-template<typename T>
-struct TransparentHasher
-{
-    using is_transparent = void; // enable heterogeneous overloads
-    using is_avalanching = void; // mark class as high quality avalanching hash
-
-    template<typename U>
-    constexpr size_t operator()(U&& v) const noexcept { return static_cast<size_t>(v); }
-};
-
-template<typename T>
-struct TransparentEqualTo
-{
-    using is_transparent = void; // enable heterogeneous overloads
-    using is_avalanching = void; // mark class as high quality avalanching hash
-
-    constexpr bool operator()(const T& l, const T& r) const noexcept { return l == r; }
-};
-
-
 }

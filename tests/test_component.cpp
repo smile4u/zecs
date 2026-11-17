@@ -21,6 +21,26 @@ struct EmptyWithDtor
 
     static inline int gone = 0;
 };
+
+// Components of different size, to check the size of a pool page.
+struct Big
+{
+    int value = 0;
+    char pad[156] = {};
+};
+
+struct Huge
+{
+    char pad[100000] = {};
+};
+
+struct OwnPage
+{
+    static constexpr size_t page_size = 8;
+
+    int value = 0;
+    char pad[156] = {};
+};
 } // namespace
 
 // Covers typed and runtime component operations on a populated world:
@@ -172,6 +192,29 @@ TEST_CASE("component_api")
             CHECK(pool == fx.world.comp_pool_get<test::Position>());
             CHECK(pool->guid == zecs::globalUid<test::Position>);
             CHECK(*pool->type == typeid(test::Position));
+        }
+
+        SUBCASE("pool page is about 64 KB and at most 4096 components")
+        {
+            CHECK(zecs::CompPool2<test::Position>::PAGE_SIZE == 4096);
+            CHECK(zecs::CompPool2<Big>::PAGE_SIZE == 512);
+            CHECK(zecs::CompPool2<Huge>::PAGE_SIZE == 1);
+            CHECK(zecs::CompPool2<OwnPage>::PAGE_SIZE == 8);
+
+            // Components keep their values over many pages.
+            std::vector<zecs::Entity> entities;
+            for (int i = 0; i < 1000; ++i)
+            {
+                entities.push_back(fx.world.entity_add());
+                fx.world.comp_add<Big>(entities.back())->value = i;
+                fx.world.comp_add<OwnPage>(entities.back())->value = -i;
+            }
+
+            for (int i = 0; i < 1000; ++i)
+            {
+                CHECK(fx.world.comp_get<Big>(entities[i])->value == i);
+                CHECK(fx.world.comp_get<OwnPage>(entities[i])->value == -i);
+            }
         }
 
         SUBCASE("removing entity removes all its components")

@@ -86,67 +86,71 @@ struct CompPool2Base
         const Dense* dense;
     };
 
+    // Goes through the patch list from new to old.
+    // It is safe to add, remove or patch components inside the loop.
+    // Rule: every new patch tick is bigger than all old ones.
     struct PatchIt
     {
-        inline PatchIt(DIndex head_) noexcept
-            : head(head_)
-            , since(0)
-            , dense(nullptr)
-            , comps(nullptr)
-            , patches(nullptr)
-        { }
+        inline PatchIt() noexcept = default;
 
-        inline PatchIt(DIndex head_, GTick since_, const Dense* dense_, const Comps* comps_, const Patches* patches_) noexcept
-            : head(head_)
-            , since(since_)
-            , dense(dense_)
-            , comps(comps_)
-            , patches(patches_)
+        inline PatchIt(GTick since_, const CompPool2Base* pool_) noexcept
+            : since(since_)
+            , pool(pool_)
         {
-            validate();
+            move_to(pool->patch_head);
         }
 
         inline bool operator==(const PatchIt& other) const noexcept { return head == other.head; }
         inline bool operator!=(const PatchIt& other) const noexcept { return head != other.head; }
-        inline PatchIt& operator++() noexcept { next_matched(); return *this; }
-        inline Entity operator*() const noexcept { return (*dense)[head]; }
-        inline GTick tick() const noexcept { return (*comps)[head].tick; }
+        inline PatchIt& operator++() noexcept { move_to(next); return *this; }
+        inline Entity operator*() const noexcept { return pool->dense[head]; }
+        inline GTick tick() const noexcept { return pool->comps[head].tick; }
 
     private:
-        inline void next_matched() noexcept
+        // Moves to node `n`, or to the first good node after it.
+        inline void move_to(DIndex n) noexcept
         {
-            if (head != DIndex_NONE)
+            while (n != DIndex_NONE)
             {
-                head = (*patches)[head].next;
-                validate();
-            }
-        }
-
-        inline void validate() noexcept
-        {
-            while (head != DIndex_NONE)
-            {
-                // Skip dead slots: their patches[] keep the stale patch-list
-                // linkage (see dense_rem), so a removed node's successor chain
-                // stays walkable instead of yielding Entity_INVALID.
-                if ((*dense)[head] == Entity_INVALID)
+                // Removed slot: skip it. Its old link still works (see dense_rem).
+                if (pool->dense[n] == Entity_INVALID)
                 {
-                    head = (*patches)[head].next;
+                    n = pool->patches[n].next;
                     continue;
                 }
 
-                if ((*comps)[head].tick < since)
-                    head = DIndex_NONE;
+                // The next node must be older than the current one. If it is not,
+                // the loop body patched it or reused its slot, and its link goes
+                // back to the start of the list. Search from the head instead.
+                const GTick t = pool->comps[n].tick;
+                if (t >= cur_tick) [[unlikely]]
+                {
+                    n = pool->patch_head;
+                    while (n != DIndex_NONE && pool->comps[n].tick >= cur_tick)
+                        n = pool->patches[n].next;
+
+                    continue;
+                }
+
+                if (t < since)
+                    n = DIndex_NONE;
+                else
+                    cur_tick = t;
 
                 break;
             }
+
+            // Save the next link now: the loop body can patch or replace
+            // the current node, and then its link is not correct anymore.
+            head = n;
+            next = pool->patches[n].next;
         }
 
-        GTick since;
-        DIndex head;
-        const Dense* dense;
-        const Comps* comps;
-        const Patches* patches;
+        GTick since = 0;
+        GTick cur_tick = GTick_INVALID; // tick of the current node
+        const CompPool2Base* pool = nullptr;
+        DIndex head = DIndex_NONE;
+        DIndex next = DIndex_NONE; // link of the current node, saved before the loop body runs
     };
 
     ZECS_EXPORT CompPool2Base();
@@ -170,8 +174,8 @@ struct CompPool2Base
     inline EntityIt entities_begin() const noexcept { return EntityIt(1, &dense); }
     inline EntityIt entities_end() const noexcept { return EntityIt(static_cast<DIndex>(dense.size())); }
 
-    inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(patch_head, since, &dense, &comps, &patches); }
-    inline PatchIt patches_end() const noexcept { return PatchIt(DIndex_NONE); }
+    inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
+    inline PatchIt patches_end() const noexcept { return PatchIt(); }
     inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? comps[patch_head].tick < since : true; }
 
     CompPool2Signal on_added;

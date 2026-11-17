@@ -25,6 +25,11 @@ struct CompPool2 : public CompPool2Base
     static constexpr uint32_t PAGE_SIZE = CompPool2PageSize<T>::value;
     static_assert(std::has_single_bit(PAGE_SIZE));
 
+    // raw_add() gives no arguments. Then only a type with
+    // a default constructor can be made.
+    template<typename... Args>
+    static constexpr bool can_add = std::is_default_constructible_v<T> || sizeof...(Args) > 0;
+
     ~CompPool2()
     {
         if constexpr (!std::is_empty_v<T>)
@@ -84,7 +89,7 @@ struct CompPool2 : public CompPool2Base
     {
         assert(e != Entity_INVALID);
 
-        if constexpr (std::is_default_constructible_v<T> || sizeof...(Args) > 0)
+        if constexpr (can_add<Args...>)
         {
             const DIndex di = dense_add(e);
 
@@ -107,8 +112,6 @@ struct CompPool2 : public CompPool2Base
         }
         else
         {
-            // when trying to create non-default constractible
-            // component with raw_add call
             return nullptr;
         }
     }
@@ -120,8 +123,10 @@ struct CompPool2 : public CompPool2Base
         if (comp)
             return std::make_pair(comp, false);
 
-        comp = add(e, (*tick)++, std::forward<Args>(args)...);
-        return std::make_pair(comp, true);
+        if constexpr (can_add<Args...>)
+            return std::make_pair(add(e, (*tick)++, std::forward<Args>(args)...), true);
+        else
+            return std::make_pair(nullptr, false);
     }
 
     inline bool remove(Entity e) noexcept

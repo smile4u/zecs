@@ -387,7 +387,7 @@ TEST_CASE("view_api")
     SUBCASE("view_comps keeps its end when end() is called again after the pool grows")
     {
         // A loop that calls end() on every step must stop at the same place as
-        // a range-for. Slots added during the pass are not visited.
+        // a range-for. New slots after the saved end are not visited.
         zecs::World world("grow-during-comps");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();

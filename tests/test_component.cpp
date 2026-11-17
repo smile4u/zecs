@@ -60,6 +60,20 @@ TEST_CASE("component_api")
             CHECK(non_default->value == 42);
         }
 
+        SUBCASE("get_or_add without arguments does not add a non default constructible component")
+        {
+            auto* pool = fx.world.comp_pool_get<test::NonDefault>();
+            REQUIRE(pool != nullptr);
+
+            zecs::GTick tick = 100;
+            const auto res = pool->get_or_add(fx.get_or_add_entity, &tick);
+
+            CHECK(res.first == nullptr);
+            CHECK_FALSE(res.second);
+            CHECK(tick == 100);
+            CHECK_FALSE(pool->contains(fx.get_or_add_entity));
+        }
+
         SUBCASE("removing entity removes all its components")
         {
             fx.world.entity_remove(fx.removable_entity);

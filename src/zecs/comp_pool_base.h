@@ -48,8 +48,9 @@ struct CompPool2Base
     using Sparse = std::vector<DIndex>;
 
     // Goes through the entities of one pool.
-    // The end is saved when the pass starts: slots added during the pass
-    // are not visited, also when end() is called again.
+    // The end is saved when the pass starts, also when end() is called again.
+    // A component added during the pass may be visited or not: it can
+    // take a free slot before the end. There is no guarantee.
     struct EntityIt
     {
         // The end iterator.

@@ -238,3 +238,31 @@ TEST_CASE("entity_reuse")
         CHECK(visited == 4);
     }
 }
+
+TEST_CASE("world_counters")
+{
+    zecs::World world;
+
+    CHECK(world.counters_get().entities == 1); // the root
+    CHECK(world.counters_get().components == 0);
+    CHECK(world.counters_get().pools == 0);
+
+    const zecs::Entity a = world.entity_add();
+    const zecs::Entity b = world.entity_add();
+    world.comp_add<test::Position>(a);
+    world.comp_add<test::Position>(b);
+    world.comp_add<test::Velocity>(a);
+
+    CHECK(world.counters_get().entities == 3);
+    CHECK(world.counters_get().components == 3);
+    CHECK(world.counters_get().pools == 2);
+
+    // A pool stays when its last component is removed.
+    world.comp_remove<test::Velocity>(a);
+    CHECK(world.counters_get().components == 2);
+    CHECK(world.counters_get().pools == 2);
+
+    world.entity_remove(b);
+    CHECK(world.counters_get().entities == 2);
+    CHECK(world.counters_get().components == 1);
+}

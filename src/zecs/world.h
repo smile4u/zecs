@@ -54,6 +54,8 @@ struct ZECS_EXPORT World
     // ------------------------------------------
     // Component API
     // ------------------------------------------
+    // Contract: comp_add needs an entity that does not have this component yet.
+    // It is checked by assert. Use comp_get_or_add when it may be there.
 
     template<typename T, typename... Args>
     T* comp_add(Entity e, Args&&... args);
@@ -89,7 +91,7 @@ struct ZECS_EXPORT World
     void comp_patch(Entity e);
 
     template<typename T>
-    void comp_patch(Entity e, T* comp);
+    void comp_patch(Entity e, T* comp); // same as comp_patch<T>(e): the pointer only tells the type
     void comp_patch(Entity e, GUid guid);
 
     template<typename T>
@@ -151,12 +153,6 @@ struct ZECS_EXPORT World
     ViewPatchedComps view_patched_comps(const TickContext& ctx);
     ViewPatchedComps view_patched_comps(GUid guid, const TickContext& ctx);
 
-#if 0    
-    template<typename T, typename... OtherComps>
-    ViewPatchedGroup<T, OtherComps...> view_patched_group(const TickContext& ctx);
-    ViewPatchedGroupRt view_patched_group(const TickContext& ctx, GUid patched_guid, const GUid* others_guids, size_t others_count);
-#endif
-
     template<typename T>
     ViewEvents<T> view_events(const TickContext& ctx);
 
@@ -179,7 +175,7 @@ struct ZECS_EXPORT World
     template<typename... T>
     bool has_any(Entity e, const CompTupl<T...>& comp_tuple);
 
-    const Counters& counters_get();
+    Counters counters_get() const;
 
 private:
     friend struct ViewCompGroupIter;
@@ -196,7 +192,7 @@ private:
     EventDequeBase* event_pool_add(EUidIndex index, EventDequeCreateFn create_fn);
 
     Entities entities;
-    Counters counters;
+    size_t entity_count = 0;
 
     CompPools comp_pools;
     CompPoolsPacked comp_pools_packed;
@@ -468,19 +464,6 @@ inline ViewPatchedComps World::view_patched_comps(GUid guid, const TickContext& 
     CompPool2Base* pool = comp_pool_get(guid);
     return ViewPatchedComps(pool, ctx.since);
 }
-
-#if 0
-template<typename T, typename ...OtherComps>
-inline ViewPatchedGroup<T, OtherComps...> World::view_patched_group(const TickContext& ctx)
-{
-    return ViewPatchedGroup<T, OtherComps...>(*this, ctx);
-}
-
-inline ViewPatchedGroupRt World::view_patched_group(const TickContext& ctx, GUid patched_guid, const GUid* others_guids, size_t others_count)
-{
-    return ViewPatchedGroupRt(*this, ctx, patched_guid, others_guids, others_count);;
-}
-#endif
 
 template<typename T>
 inline ViewEvents<T> World::view_events(const TickContext& ctx)

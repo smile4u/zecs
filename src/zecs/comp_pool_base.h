@@ -82,6 +82,10 @@ struct CompPool2Base
     // Goes through the patch list from new to old.
     // It is safe to add, remove or patch components inside the loop.
     // Rule: every new patch tick is bigger than all old ones.
+    // A component that is added or patched inside the loop moves to the head
+    // of the list, so this pass does not visit it; the next pass does.
+    // A body that patches the next node on every step makes the pass slow
+    // (see the search from the head in move_to).
     struct PatchIt
     {
         inline PatchIt() noexcept = default;

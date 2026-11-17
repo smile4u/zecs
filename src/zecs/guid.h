@@ -10,6 +10,8 @@ namespace zecs
 {
 enum class GUid : uint32_t; // unique component type identifier
 
+// The value comes from the type name as the compiler prints it. It can differ
+// between compilers and their versions: do not save it to files or send it.
 template<typename T>
 constexpr GUid globalUid = static_cast<GUid>(func_CRC32<T>());
 constexpr GUid GUid_INVALID = static_cast<GUid>(0);

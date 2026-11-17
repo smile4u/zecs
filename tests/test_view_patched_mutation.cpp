@@ -41,7 +41,7 @@ bool contains(const std::vector<zecs::Entity>& haystack, zecs::Entity needle)
 
 } // namespace
 
-// Regression for known_issues #2: PatchIt used to follow links[head].next, which
+// Regression: PatchIt used to follow links[head].next, which
 // dense_rem repurposed as free-list linkage, so removing the visited component
 // stranded the iterator in the free-list (seen=1 instead of 1000 / garbage).
 TEST_CASE("patch view: removing current element during iteration")
@@ -95,7 +95,7 @@ TEST_CASE("patch view: removing next element during iteration")
 }
 
 // Chained removal (current + its successor, e.g. via a re-entrant on_removed
-// handler) must not land the iterator on a dead slot: known_issues #14 yielded
+// handler) must not land the iterator on a dead slot: it used to yield
 // Entity_INVALID here.
 TEST_CASE("patch view: removing current and successor during iteration")
 {

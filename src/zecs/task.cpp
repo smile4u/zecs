@@ -50,7 +50,7 @@ void TaskGraph::init(World& world)
         tasks_step_normal.push_back({ task, TickContext() });
     }
 
-    tasks_step_normal.reserve(step_fixed_ids.size());
+    tasks_step_fixed.reserve(step_fixed_ids.size());
     for (const std::string& task_id : step_fixed_ids)
     {
         Task task = TaskManager::instance()->get(task_id.c_str());

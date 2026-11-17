@@ -8,8 +8,6 @@
 namespace zecs
 {
 
-inline uint64_t world_unique_id_counter = 0;
-
 World::World(const char* world_name)
 {
     entities_root = entity_add();
@@ -41,7 +39,7 @@ Entity World::entity_add()
         entities.push_back(e);
     }
 
-    counters.entities++;
+    entity_count++;
     return e;
 }
 
@@ -69,8 +67,22 @@ bool World::entity_remove(Entity e)
 
     entities[eindex] = static_cast<Entity>(next_gen | entity_free_index);
     entity_free_index = eindex;
-    counters.entities--;
+    entity_count--;
     return true;
+}
+
+World::Counters World::counters_get() const
+{
+    // Components and pools are counted here, on request: a counter
+    // inside add() and remove() would slow down every call.
+    Counters counters;
+    counters.entities = entity_count;
+    counters.pools = comp_pools_packed.size();
+
+    for (const CompPool2Base* pool : comp_pools_packed)
+        counters.components += pool->size();
+
+    return counters;
 }
 
 void* World::comp_add(Entity e, GUid guid)

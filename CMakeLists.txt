@@ -39,5 +39,5 @@ if(BUILD_TESTS)
 
     add_executable(${PROJECT_NAME}_tests ${TST_SOURCES})
     target_link_libraries(${PROJECT_NAME}_tests PRIVATE ${ZECS_LIB})
-    target_include_directories(${PROJECT_NAME}_tests PRIVATE ${TST_SOURCES} ${EXT_DIR})
+    target_include_directories(${PROJECT_NAME}_tests PRIVATE ${TST_DIR} ${EXT_DIR})
 endif()

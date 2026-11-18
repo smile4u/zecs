@@ -180,6 +180,12 @@ struct CompPool2Base
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
     virtual bool raw_remove(Entity e) = 0;
 
+    // Moves components from the end into the empty slots and frees the memory.
+    // Pointers to moved components are not valid after it, and the order
+    // of entities in a pass changes. Do not call it inside a view loop.
+    // Components that can not be moved stay in their slots.
+    ZECS_EXPORT void compact() noexcept;
+
     inline EntityIt entities_begin() const noexcept { return EntityIt(&dense); }
 
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
@@ -198,6 +204,7 @@ protected:
     friend struct World;
 
     ZECS_HOT_INLINE constexpr DIndex sparse_index_get(Entity e) const noexcept;
+    ZECS_HOT_INLINE constexpr DIndex sparse_cell_make(Entity e, DIndex di) const noexcept;
     ZECS_HOT_INLINE constexpr DIndex dense_index_get(Entity e) const noexcept;
 
     // Takes a slot, saves the tick and puts the slot at the head of the patch list.
@@ -205,6 +212,11 @@ protected:
     ZECS_EXPORT void dense_rem(DIndex index) noexcept;
     ZECS_EXPORT void dense_patch(DIndex index, GTick tick) noexcept;
     ZECS_EXPORT void patched_emit(Entity e) noexcept;
+
+    // For compact(): move one component (false if the type can not be moved)
+    // and free the pages that `size` slots do not need.
+    virtual bool comp_slot_move(DIndex from, DIndex to) noexcept = 0;
+    virtual void comp_slots_trim(DIndex size) noexcept = 0;
 
     World* world = nullptr;
 
@@ -258,6 +270,12 @@ constexpr bool CompPool2Base::contains(Entity e) const noexcept
 constexpr DIndex CompPool2Base::sparse_index_get(Entity e) const noexcept
 {
     return entity_to_index(e);
+}
+
+constexpr DIndex CompPool2Base::sparse_cell_make(Entity e, DIndex di) const noexcept
+{
+    // Low bits: the dense index. High bits: the generation of the entity.
+    return di | (static_cast<DIndex>(e) & Entity_GEN_MASK);
 }
 
 constexpr DIndex CompPool2Base::dense_index_get(Entity e) const noexcept

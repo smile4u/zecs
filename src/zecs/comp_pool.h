@@ -141,6 +141,35 @@ struct CompPool2 : public CompPool2Base
     }
 
 private:
+    bool comp_slot_move(DIndex from, DIndex to) noexcept override
+    {
+        if constexpr (is_tag_component<T>)
+        {
+            return true;
+        }
+        else if constexpr (std::is_move_constructible_v<T>)
+        {
+            ::new (comp_slot(to)) T(std::move(*comp_slot(from)));
+            comp_slot(from)->~T();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    void comp_slots_trim(DIndex size) noexcept override
+    {
+        // Slot 0 has no component, so an empty pool needs no page.
+        const size_t page_count = (size > DIndex_FIRST) ? ((size - 1) >> PAGE_BITS) + 1 : 0;
+        while (pages.size() > page_count)
+        {
+            mem_pool_data_free(pages.back(), alignof(T));
+            pages.pop_back();
+        }
+    }
+
     // Component storage is inline and indexed by the dense index (di), so that
     // the data lives in di-order parallel to dense instead of being
     // pointer-chased through a separate allocator.

@@ -59,7 +59,7 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
         patches[patch_head].prev = di;
 
     patch_head = di;
-    sparse[si] = di | (static_cast<DIndex>(e) & Entity_GEN_MASK);
+    sparse[si] = sparse_cell_make(e, di);
     dense_count++;
 
     return di;
@@ -95,6 +95,73 @@ void CompPool2Base::dense_rem(DIndex di) noexcept
     dense_count--;
 
     free_head = di;
+}
+
+void CompPool2Base::compact() noexcept
+{
+    // No empty slots: nothing to do, and the arrays are not copied.
+    if (free_head == DIndex_NONE)
+        return;
+
+    // Cut the empty end of sparse[]. It is done before the moves,
+    // so a pool that can not move its components gets it too.
+    // TODO: empty cells in the middle stay. To free them sparse[] must be
+    // made of pages. That adds one memory read to every search: measure first.
+    while (sparse_size > 0 && sparse[sparse_size - 1] == DIndex_NONE) --sparse_size;
+    sparse.resize(sparse_size);
+    sparse.shrink_to_fit();
+
+    // `to` looks for an empty slot from the start,
+    // `from` looks for a used slot from the end.
+    DIndex to = DIndex_FIRST;
+    DIndex from = static_cast<DIndex>(dense.size()) - 1;
+
+    while (true)
+    {
+        while (to < from && dense[to] != Entity_INVALID) ++to;
+        while (from > to && dense[from] == Entity_INVALID) --from;
+
+        if (to >= from)
+            break;
+
+        // The first move fails or none does, so nothing is half done here.
+        if (!comp_slot_move(from, to))
+            return;
+
+        const Entity e = dense[from];
+        const PatchNode links = patches[from];
+
+        dense[to] = e;
+        ticks[to] = ticks[from];
+        patches[to] = links;
+        sparse[sparse_index_get(e)] = sparse_cell_make(e, to);
+
+        // The neighbours in the patch list must point to the new slot.
+        if (links.prev != DIndex_NONE)
+            patches[links.prev].next = to;
+        else
+            patch_head = to;
+
+        if (links.next != DIndex_NONE)
+            patches[links.next].prev = to;
+
+        dense[from] = Entity_INVALID;
+    }
+
+    // `to` is the last used slot or the first empty one.
+    const DIndex size = (to < dense.size() && dense[to] != Entity_INVALID) ? to + 1 : to;
+    assert(size - DIndex_FIRST == dense_count);
+
+    dense.resize(size);
+    ticks.resize(size);
+    patches.resize(size);
+
+    dense.shrink_to_fit();
+    ticks.shrink_to_fit();
+    patches.shrink_to_fit();
+
+    free_head = DIndex_NONE;
+    comp_slots_trim(size);
 }
 
 void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept

@@ -166,6 +166,13 @@ struct ZECS_EXPORT World
     // Utility API
     // ------------------------------------------
 
+    // Frees the memory left after removed components. Loops over views
+    // get faster too: they have no empty slots to skip.
+    // Call it after many components were removed, like at the end of a level.
+    // Pointers to components are not valid after it, and the order of
+    // entities in views changes. Do not call it inside a view loop.
+    void compact();
+
     template<typename... T>
     CompTupl<T...> comps_tuple_get();
 

@@ -106,6 +106,12 @@ void* World::comp_get_or_add(Entity e, GUid guid)
     return res.first;
 }
 
+void World::compact()
+{
+    for (CompPool2Base* pool : comp_pools_packed)
+        pool->compact();
+}
+
 CompPool2Base* World::comp_pool_add(CUidIndex cindex, CompPool2CreateFn create_fn)
 {
     const size_t index = static_cast<size_t>(cindex);

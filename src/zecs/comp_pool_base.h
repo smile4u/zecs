@@ -48,9 +48,15 @@ struct CompPool2Base
         {
             // `&` and `|` always compute both sides, so there are no jumps
             // like with `&&` and `||`. It is faster in the loop. It is safe
-            // here: both sides are plain bool. Example: (a == b) & (c | d).
+            // here: both sides are plain bool. Example: (a & b) | c.
             // It is not safe when the right side needs the left one: p && p->x.
-            return (at_end() == other.at_end()) & (at_end() | (index == other.index));
+            //
+            // Written in this form for MSVC: against end() `b` is a known true,
+            // and the whole line becomes just `a`. The shorter form
+            // (a == b) & (a | same index) was left by MSVC as 7 instructions.
+            const bool a = at_end();
+            const bool b = other.at_end();
+            return (a & b) | (!a & !b & (index == other.index));
         }
 
         inline EntityIt& operator++() noexcept { index++; next_matched(); return *this; }

@@ -51,7 +51,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         struct NoView {};
         [[no_unique_address]] std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup2*> view{};
 
-        inline void next_matched() noexcept
+        ZECS_HOT_INLINE void next_matched() noexcept
         {
             // begin() already established that every pool exists. A one-pool
             // group needs no membership filtering at all.
@@ -98,13 +98,13 @@ struct ViewCompGroup2 : private ViewCompGroupBase
 
 private:
     template<size_t offset, size_t... Indices>
-    inline bool matches_impl(Entity e, std::index_sequence<Indices...>) const noexcept
+    ZECS_HOT_INLINE bool matches_impl(Entity e, std::index_sequence<Indices...>) const noexcept
     {
         return (pools[offset + Indices]->contains(e) && ...);
     }
 
     template<size_t offset>
-    inline bool matches(Entity e) const noexcept
+    ZECS_HOT_INLINE bool matches(Entity e) const noexcept
     {
         if constexpr (offset <= POOL_COUNT)
             return matches_impl<offset>(e, std::make_index_sequence<POOL_COUNT - offset>{});

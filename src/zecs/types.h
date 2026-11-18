@@ -6,6 +6,16 @@
 #include <vector>
 #include <memory>
 
+// `inline` for the small functions that run on every step of a view loop.
+// MSVC leaves them as calls with a plain `inline`, and then the iterator
+// lives in memory, not in registers. So for MSVC it is a forced inline.
+// Other compilers inline them already; forcing made the loop slower with clang.
+#if defined(_MSC_VER) && !defined(__clang__)
+#  define ZECS_HOT_INLINE __forceinline
+#else
+#  define ZECS_HOT_INLINE inline
+#endif
+
 namespace zecs
 {
 struct World;

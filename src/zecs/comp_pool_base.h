@@ -169,7 +169,7 @@ struct CompPool2Base
 
     constexpr bool empty() const noexcept;
     constexpr size_t size() const noexcept;
-    constexpr bool contains(Entity e) const noexcept;
+    ZECS_HOT_INLINE constexpr bool contains(Entity e) const noexcept;
 
     // Takes one tick from `tick`, but only when the entity has the component.
     void patch(Entity e, GTick* tick) noexcept;
@@ -197,8 +197,8 @@ struct CompPool2Base
 protected:
     friend struct World;
 
-    constexpr DIndex sparse_index_get(Entity e) const noexcept;
-    constexpr DIndex dense_index_get(Entity e) const noexcept;
+    ZECS_HOT_INLINE constexpr DIndex sparse_index_get(Entity e) const noexcept;
+    ZECS_HOT_INLINE constexpr DIndex dense_index_get(Entity e) const noexcept;
 
     // Takes a slot, saves the tick and puts the slot at the head of the patch list.
     ZECS_EXPORT DIndex dense_add(Entity e, GTick tick) noexcept;

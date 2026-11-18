@@ -4,6 +4,7 @@
 #include "zecs/view_comps_group_base.h"
 
 #include <array>
+#include <cassert>
 #include <type_traits>
 #include <utility>
 
@@ -30,7 +31,18 @@ struct ViewCompGroup2 : private ViewCompGroupBase
                 view = view_;
             next_matched();
         }
-        inline It& operator++() noexcept { ++it; next_matched(); return *this; }
+        inline It& operator++() noexcept
+        {
+            // A one-pool group has no matches() check, so the pool
+            // iterator must skip empty slots itself.
+            if constexpr (POOL_COUNT > 1)
+                it.step();
+            else
+                ++it;
+
+            next_matched();
+            return *this;
+        }
         inline bool operator==(const It& other) const noexcept { return it == other.it; }
         inline Entity operator*() const noexcept { return *it; }
 
@@ -43,8 +55,12 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         {
             // begin() already established that every pool exists. A one-pool
             // group needs no membership filtering at all.
+            // An empty slot keeps Entity_INVALID, and no pool contains it.
+            // So matches() skips empty slots too, with no check of its own.
             if constexpr (POOL_COUNT > 1)
-                while (!it.at_end() && !view->template matches<1>(*it)) { ++it; }
+                while (!it.at_end() && !view->template matches<1>(*it)) { it.step(); }
+
+            assert(it.at_end() || *it != Entity_INVALID);
         }
     };
 

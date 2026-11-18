@@ -14,6 +14,9 @@ namespace zecs
 {
 using CompPool2Signal = Gallant::Signal2<World&, Entity>;
 
+template<typename... T>
+struct ViewCompGroup2;
+
 struct CompPool2Base
 {
     // Links of the patch list. The free list does not use these links
@@ -64,6 +67,12 @@ struct CompPool2Base
 
     private:
         friend struct CompPool2Base;
+        template<typename... T>
+        friend struct ViewCompGroup2;
+
+        // Goes to the next slot, also when it is empty. Only for a group view:
+        // it checks the entity of every slot anyway.
+        inline void step() noexcept { index++; }
 
         inline EntityIt(const Dense* dense_) noexcept
             : index(DIndex_FIRST)

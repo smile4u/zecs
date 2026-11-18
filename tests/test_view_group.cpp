@@ -384,6 +384,29 @@ TEST_CASE("group view supports mixed removal and slot reuse in one pass")
     }
 }
 
+TEST_CASE("typed group never gives an empty slot of the lead pool")
+{
+    GroupFixture fx;
+
+    // Empty slots in both pools: any of them can be the lead.
+    const zecs::Entity gone = fx.world.entity_add();
+    fx.world.comp_add<GroupTag<0>>(gone);
+    fx.world.comp_add<GroupTag<1>>(gone);
+    REQUIRE(fx.world.comp_remove<GroupTag<0>>(gone));
+    REQUIRE(fx.world.comp_remove<GroupTag<1>>(gone));
+
+    auto view = fx.world.view_comp_group<GroupTag<0>, GroupTag<1>>();
+    CHECK_FALSE(view.has(zecs::Entity_INVALID));
+
+    size_t seen = 0;
+    for (zecs::Entity e : view)
+    {
+        CHECK(e != zecs::Entity_INVALID);
+        ++seen;
+    }
+    CHECK(seen == 2);
+}
+
 TEST_CASE("runtime group storage and empty ranges")
 {
     GroupFixture fx;

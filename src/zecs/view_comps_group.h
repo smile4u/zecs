@@ -1,13 +1,13 @@
 #pragma once
 
 #include "zecs/comp_pool_base.h"
+#include "zecs/query_scope.h"
 #include "zecs/traits.h"
 #include "zecs/view_comps_group_base.h"
 
 #include <array>
 #include <cassert>
 #include <type_traits>
-#include <utility>
 
 namespace zecs
 {
@@ -35,7 +35,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         }
         inline It& operator++() noexcept
         {
-            // A one-pool group has no matches() check, so the pool
+            // A one-pool group has no check of other pools, so the pool
             // iterator must skip empty slots itself.
             if constexpr (POOL_COUNT > 1)
                 it.step();
@@ -58,19 +58,18 @@ struct ViewCompGroup2 : private ViewCompGroupBase
             // begin() already established that every pool exists. A one-pool
             // group needs no membership filtering at all.
             // An empty slot keeps Entity_INVALID, and no pool contains it.
-            // So matches() skips empty slots too, with no check of its own.
+            // So the check of the other pools skips empty slots too.
             if constexpr (POOL_COUNT > 1)
-                while (!it.at_end() && !view->template matches<1>(*it)) { it.step(); }
+                while (!it.at_end() && !view->scope.template has_all<1>(*it)) { it.step(); }
 
             assert(it.at_end() || *it != Entity_INVALID);
         }
     };
 
     ViewCompGroup2(Pools pools_) noexcept
-        : pools(std::move(pools_))
+        : scope(pools_)
     {
-        if constexpr (POOL_COUNT > 1)
-            select_lead(pools.data(), POOL_COUNT);
+        scope.move_leading_pool_front();
     }
 
     inline bool empty() const noexcept { return begin() == end(); }
@@ -79,10 +78,10 @@ struct ViewCompGroup2 : private ViewCompGroupBase
     // only its pool pointers; active iterators require it to stay in place.
     inline It begin() const noexcept
     {
-        if (pools[0] == nullptr)
+        const CompPool2Base* lead = scope.pools[0];
+        if (lead == nullptr)
             return It();
 
-        const auto* lead = pools[0];
         return It(lead->entities_begin(), this);
     }
 
@@ -92,29 +91,17 @@ struct ViewCompGroup2 : private ViewCompGroupBase
 
     inline bool has(Entity e) const noexcept
     {
-        if (pools[0] == nullptr)
+        if (scope.pools[0] == nullptr)
             return false;
 
-        return matches<0>(e);
+        return scope.has_all(e);
     }
 
 private:
-    template<size_t offset, size_t... Indices>
-    ZECS_HOT_INLINE bool matches_impl(Entity e, std::index_sequence<Indices...>) const noexcept
-    {
-        return (pools[offset + Indices]->contains(e) && ...);
-    }
-
-    template<size_t offset>
-    ZECS_HOT_INLINE bool matches(Entity e) const noexcept
-    {
-        if constexpr (offset <= POOL_COUNT)
-            return matches_impl<offset>(e, std::make_index_sequence<POOL_COUNT - offset>{});
-        else
-            static_assert(offset <= POOL_COUNT, "Component offset exceeds pool count");
-    }
-
-    Pools pools;
+    // The first pool is the lead: the smallest one, and the pass goes over it.
+    // Every entity of it is checked in the other pools.
+    // The first pool is nullptr when a pool is missing: the view is empty.
+    QueryScopeBase<POOL_COUNT> scope;
 };
 
 } // namespace zecs

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "zecs/comp_pool_base.h"
+#include "zecs/exports.h"
 #include "zecs/traits.h"
 
 #include <array>
@@ -10,10 +11,14 @@
 namespace zecs
 {
 
+// Moves the smallest pool to the first place. A missing pool (nullptr)
+// goes first too. A view goes over the first pool, so its pass is the shortest.
+ZECS_EXPORT void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept;
+
 // N pools and the checks of an entity in all of them at once.
 // It knows only the number of the component types, not the types:
-// a group view picks its lead pool when it is made, and keeps the other
-// pools here.
+// a group view moves its lead pool to the first place when it is made,
+// so a place here can not belong to a type.
 template<size_t N>
 struct QueryScopeBase
 {
@@ -30,8 +35,23 @@ protected:
         : pools(pools_)
     { }
 
+    // See move_leading_pool_front().
+    inline void move_leading_pool_front() noexcept
+    {
+        // One pool: nothing to move, so there is no call at all.
+        if constexpr (N > 1)
+            zecs::move_leading_pool_front(pools.data(), N);
+    }
+
     // The pools are checked in their order, with a stop at the first "no".
-    ZECS_HOT_INLINE bool has_all(Entity e) const noexcept { return has_all_impl(e, std::make_index_sequence<N>{}); }
+    // `Offset` is the number of the first pools to skip: a view does not
+    // check its lead pool, the entity comes from it.
+    template<size_t Offset = 0>
+    inline bool has_all(Entity e) const noexcept
+    {
+        static_assert(Offset <= N);
+        return has_all_impl<Offset>(e, std::make_index_sequence<N - Offset>{});
+    }
 
     // The same with a stop at the first "yes".
     inline bool has_any(Entity e) const noexcept { return has_any_impl(e, std::make_index_sequence<N>{}); }
@@ -39,10 +59,10 @@ protected:
     Pools pools;
 
 private:
-    template<size_t... I>
-    ZECS_HOT_INLINE bool has_all_impl(Entity e, std::index_sequence<I...>) const noexcept
+    template<size_t Offset, size_t... I>
+    inline bool has_all_impl(Entity e, std::index_sequence<I...>) const noexcept
     {
-        return (pools[I]->contains(e) && ...);
+        return (pools[Offset + I]->contains(e) && ...);
     }
 
     template<size_t... I>

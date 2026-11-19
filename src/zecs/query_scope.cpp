@@ -1,14 +1,13 @@
-#include "zecs/view_comps_group_base.h"
-#include "zecs/comp_pool_base.h"
+#include "zecs/query_scope.h"
 
 #include <utility>
 
 namespace zecs
 {
 
-void ViewCompGroupBase::select_lead(CompPool2Base** pools, size_t count) noexcept
+void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept
 {
-    if (pools[0] == nullptr)
+    if (count < 2 || pools[0] == nullptr)
         return;
 
     size_t lead = 0;

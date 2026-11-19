@@ -1,4 +1,5 @@
 #include "zecs/view_comps_group_rt.h"
+#include "zecs/query_scope.h"
 #include "zecs/world.h"
 
 #include <algorithm>
@@ -14,8 +15,8 @@ ViewCompGroupRt::ViewCompGroupRt(Pools pools_)
         pools = std::move(pools_);
     else
         std::copy(pools_.begin(), pools_.end(), std::get<InlinePools>(pools).begin());
-    if (count > 1)
-        select_lead(pool_data(), count);
+
+    move_leading_pool_front(pool_data(), count);
 }
 
 ViewCompGroupRt::ViewCompGroupRt(World& world, const GUid* guids, size_t count_)
@@ -27,8 +28,8 @@ ViewCompGroupRt::ViewCompGroupRt(World& world, const GUid* guids, size_t count_)
     auto* ptr = pool_data();
     for (size_t i = 0; i < count; ++i)
         ptr[i] = world.comp_pool_get(guids[i]);
-    if (count > 1)
-        select_lead(ptr, count);
+
+    move_leading_pool_front(ptr, count);
 }
 
 CompPool2Base** ViewCompGroupRt::pool_data() noexcept

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "zecs/comp_pool.h"
-#include "zecs/comp_tuple.h"
+#include "zecs/query_scope.h"
 #include "zecs/guid.h"
 #include "zecs/events.h"
 #include "zecs/types.h"
@@ -163,6 +163,29 @@ struct ZECS_EXPORT World
     GTick tick_get();
 
     // ------------------------------------------
+    // Query API
+    // ------------------------------------------
+    // Fast checks for several component types in a loop.
+    // Make a scope one time before the loop: it finds the pools (and makes
+    // the missing ones), so the calls with it do not search for them again.
+    // Contract: a scope is used only with the world that made it.
+    // It is checked by assert.
+
+    template<typename... T>
+    QueryScope<T...> query_scope();
+
+    // True when the entity has every component of the scope.
+    // The types are checked in their order, with a stop at the first one
+    // that the entity does not have. So put the rarest component first.
+    template<size_t N>
+    bool query_has_all(Entity e, const QueryScopeBase<N>& scope) const noexcept;
+
+    // True when the entity has at least one component of the scope.
+    // It stops at the first one that the entity has: put the most common first.
+    template<size_t N>
+    bool query_has_any(Entity e, const QueryScopeBase<N>& scope) const noexcept;
+
+    // ------------------------------------------
     // Utility API
     // ------------------------------------------
 
@@ -172,15 +195,6 @@ struct ZECS_EXPORT World
     // Pointers to components are not valid after it, and the order of
     // entities in views changes. Do not call it inside a view loop.
     void compact();
-
-    template<typename... T>
-    CompTupl<T...> comps_tuple_get();
-
-    template<typename... T>
-    bool has_all(Entity e, const CompTupl<T...>& comp_tuple);
-
-    template<typename... T>
-    bool has_any(Entity e, const CompTupl<T...>& comp_tuple);
 
     Counters counters_get() const;
 
@@ -479,21 +493,23 @@ inline ViewEvents<T> World::view_events(const TickContext& ctx)
 }
 
 template<typename... T>
-inline CompTupl<T...> World::comps_tuple_get()
+inline QueryScope<T...> World::query_scope()
 {
-    return CompTupl<T...>(comp_pool_get<T>()...);
+    return QueryScope<T...>({ comp_pool_get_or_add<T>()... });
 }
 
-template<typename ...T>
-inline bool World::has_all(Entity e, const CompTupl<T...>& comp_tuple)
+template<size_t N>
+inline bool World::query_has_all(Entity e, const QueryScopeBase<N>& scope) const noexcept
 {
-    return comp_tuple.has_all(e);
+    assert(scope.pools[0]->world == this);
+    return scope.has_all(e);
 }
 
-template<typename ...T>
-inline bool World::has_any(Entity e, const CompTupl<T...>& comp_tuple)
+template<size_t N>
+inline bool World::query_has_any(Entity e, const QueryScopeBase<N>& scope) const noexcept
 {
-    return comp_tuple.has_any(e);
+    assert(scope.pools[0]->world == this);
+    return scope.has_any(e);
 }
 
 inline GTick World::tick_get()

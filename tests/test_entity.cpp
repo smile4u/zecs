@@ -162,14 +162,14 @@ TEST_CASE("entity_reuse")
         CHECK_FALSE(world.comp_remove<test::Position>(old_entity));
         CHECK_FALSE(world.comp_remove(old_entity, zecs::globalUid<test::Position>));
 
-        const auto tuple = world.comps_tuple_get<test::Position>();
-        CHECK_FALSE(world.has_all(old_entity, tuple));
-        CHECK_FALSE(world.has_any(old_entity, tuple));
+        const auto scope = world.query_scope<test::Position>();
+        CHECK_FALSE(world.query_has_all(old_entity, scope));
+        CHECK_FALSE(world.query_has_any(old_entity, scope));
 
         // A remove with the old ID does not remove the new entity.
         CHECK_FALSE(world.entity_remove(old_entity));
         CHECK(world.entity_is_valid(new_entity));
-        CHECK(world.has_all(new_entity, tuple));
+        CHECK(world.query_has_all(new_entity, scope));
 
         // A patch with the old ID does nothing.
         const zecs::TickContext ctx(world.tick_get());

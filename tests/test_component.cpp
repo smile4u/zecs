@@ -50,6 +50,11 @@ static_assert(std::is_enum_v<zecs::CUidIndex>);
 static_assert(std::is_enum_v<zecs::EUidIndex>);
 static_assert(!std::is_same_v<zecs::CUidIndex, zecs::EUidIndex>);
 
+static_assert(zecs::are_types_unique<int>);
+static_assert(zecs::are_types_unique<int, float, char>);
+static_assert(!zecs::are_types_unique<int, float, int>);
+static_assert(!zecs::are_types_unique<int, int>);
+
 TEST_CASE("component_api")
 {
     test::TrackedLifetime::reset();

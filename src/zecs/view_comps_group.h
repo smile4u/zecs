@@ -1,6 +1,7 @@
 #pragma once
 
 #include "zecs/comp_pool_base.h"
+#include "zecs/traits.h"
 #include "zecs/view_comps_group_base.h"
 
 #include <array>
@@ -18,6 +19,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
 {
     static constexpr size_t POOL_COUNT = sizeof...(T);
     static_assert(POOL_COUNT > 0);
+    static_assert(are_types_unique<T...>, "a component type is given two times");
     using Pools = std::array<CompPool2Base*, POOL_COUNT>;
 
     struct It

@@ -180,6 +180,10 @@ struct CompPool2Base
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
     virtual bool raw_remove(Entity e) = 0;
 
+    // Number of dense slots in the pool. It counts the components, the empty
+    // slots between them and service slot 0.
+    constexpr size_t dense_size() const noexcept;
+
     // Moves components from the end into the empty slots and frees the memory.
     // Pointers to moved components are not valid after it, and the order
     // of entities in a pass changes. Do not call it inside a view loop.
@@ -187,7 +191,6 @@ struct CompPool2Base
     ZECS_EXPORT void compact() noexcept;
 
     inline EntityIt entities_begin() const noexcept { return EntityIt(&dense); }
-
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
     inline PatchIt patches_end() const noexcept { return PatchIt(); }
     inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? ticks[patch_head] < since : true; }
@@ -231,6 +234,11 @@ protected:
     DIndex free_head = DIndex_NONE;
     DIndex patch_head = DIndex_NONE;
 };
+
+constexpr size_t CompPool2Base::dense_size() const noexcept
+{
+    return dense.size();
+}
 
 constexpr bool CompPool2Base::empty() const noexcept
 {

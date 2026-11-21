@@ -11,8 +11,10 @@
 namespace zecs
 {
 
-// Moves the smallest pool to the first place. A missing pool (nullptr)
-// goes first too. A view goes over the first pool, so its pass is the shortest.
+// Moves the pool with the smallest number of dense slots to the first place.
+// A missing pool (nullptr) goes first too. A view goes over the first pool,
+// so its pass is the shortest.
+// We count dense slots, not components: a pass visits empty slots too.
 ZECS_EXPORT void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept;
 
 // N pools and the checks of an entity in all of them at once.

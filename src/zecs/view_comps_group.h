@@ -103,7 +103,8 @@ struct ViewCompGroup2 : private ViewCompGroupBase
     }
 
 private:
-    // The first pool is the lead: the smallest one, and the pass goes over it.
+    // The first pool is the lead: it has the smallest number of dense slots,
+    // and the pass goes over it.
     // Every entity of it is checked in the other pools.
     // The first pool is nullptr when a pool is missing: the view is empty.
     QueryScopeBase<POOL_COUNT> scope;

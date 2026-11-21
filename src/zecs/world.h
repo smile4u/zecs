@@ -551,10 +551,12 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
 {
     assert(scope.pools[0]->world == this);
 
-    // The pass goes over the smallest pool, so it is the shortest.
+    // The pass goes over the pool with the smallest number of dense slots,
+    // so it is the shortest. We count dense slots, not components:
+    // the pass visits empty slots too.
     const CompPool2Base* lead = scope.pools[0];
     for (const CompPool2Base* pool : scope.pools)
-        if (pool->size() < lead->size())
+        if (pool->dense_size() < lead->dense_size())
             lead = pool;
 
     // The pools of the scope stand in the order of its types.

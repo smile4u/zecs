@@ -312,3 +312,62 @@ TEST_CASE("query for_each")
         CHECK(count == 20);
     }
 }
+
+// The pass goes over the pool with the smallest number of dense slots.
+// Empty slots are counted too: a pool with few components and many
+// empty slots gives a long pass.
+TEST_CASE("group pass goes over the pool with the smallest number of dense slots")
+{
+    zecs::World world;
+    const zecs::Entity first = world.entity_add();
+    const zecs::Entity second = world.entity_add();
+    const zecs::Entity third = world.entity_add();
+    const zecs::Entity extra = world.entity_add();
+
+    // Position: 3 components and 8 empty slots after them.
+    world.comp_add<test::Position>(first);
+    world.comp_add<test::Position>(second);
+    world.comp_add<test::Position>(third);
+    // Add all of them first and remove them after that. A component
+    // that is added after a removal takes the removed slot again.
+    std::vector<zecs::Entity> temps(8);
+    for (zecs::Entity& temp : temps)
+    {
+        temp = world.entity_add();
+        world.comp_add<test::Position>(temp);
+    }
+    for (zecs::Entity temp : temps)
+        world.entity_remove(temp);
+
+    REQUIRE(world.comp_pool_get<test::Position>()->size() == 3);
+
+    // Velocity: 4 components in the other order and no empty slots.
+    world.comp_add<test::Velocity>(third);
+    world.comp_add<test::Velocity>(second);
+    world.comp_add<test::Velocity>(first);
+    world.comp_add<test::Velocity>(extra);
+
+    // The order of the entities shows which pool the pass goes over.
+    const std::vector<zecs::Entity> velocity_order = { third, second, first };
+
+    SUBCASE("typed view")
+    {
+        CHECK(test::collect_entities(world.view_comp_group<test::Position, test::Velocity>()) == velocity_order);
+    }
+
+    SUBCASE("runtime view")
+    {
+        const zecs::GUid guids[] = { zecs::globalUid<test::Position>, zecs::globalUid<test::Velocity> };
+        CHECK(test::collect_entities(world.view_comp_group(guids, 2)) == velocity_order);
+    }
+
+    SUBCASE("for_each")
+    {
+        // query_for_each goes from the last slot to the first one.
+        std::vector<zecs::Entity> visited;
+        const auto scope = world.query_scope<test::Position, test::Velocity>();
+        world.query_for_each(scope, [&](zecs::Entity e, test::Position&, test::Velocity&) { visited.push_back(e); });
+
+        CHECK(visited == std::vector<zecs::Entity>{ first, second, third });
+    }
+}

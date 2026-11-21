@@ -185,6 +185,17 @@ struct ZECS_EXPORT World
     template<size_t N>
     bool query_has_any(Entity e, const QueryScopeBase<N>& scope) const noexcept;
 
+    // Calls `body(entity, components...)` for every entity that has every
+    // component of the scope. The components come by reference, in the order
+    // of the types of the scope: there is no need to get them in the body.
+    //   world.query_for_each(scope, [](Entity e, Position& p, Velocity& v) { ... });
+    // The order of the entities is not fixed, and it is not the order of a view.
+    // The body can add and remove components and entities. A component
+    // that the body adds can be visited in the same pass or not.
+    // Do not call compact() in the body.
+    template<typename... T, typename F>
+    void query_for_each(const QueryScope<T...>& scope, F&& body);
+
     // ------------------------------------------
     // Utility API
     // ------------------------------------------
@@ -203,6 +214,9 @@ private:
 
     World(const World&) = delete;
     World& operator=(const World&) = delete;
+
+    template<typename F, typename... T, size_t... I>
+    static void query_for_each_loop(F& body, std::index_sequence<I...>, const CompPool2Base& lead, CompPool2<T>&... pool);
 
     using CompPool2CreateFn = CompPool2Base* (*)();
     CompPool2Base* comp_pool_get_impl(CUidIndex index);
@@ -510,6 +524,51 @@ inline bool World::query_has_any(Entity e, const QueryScopeBase<N>& scope) const
 {
     assert(scope.pools[0]->world == this);
     return scope.has_any(e);
+}
+
+template<typename... T, typename F>
+inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
+{
+    assert(scope.pools[0]->world == this);
+
+    // The pass goes over the smallest pool, so it is the shortest.
+    const CompPool2Base* lead = scope.pools[0];
+    for (const CompPool2Base* pool : scope.pools)
+        if (pool->size() < lead->size())
+            lead = pool;
+
+    // The pools of the scope stand in the order of its types.
+    [&]<size_t... I>(std::index_sequence<I...> indices)
+    {
+        query_for_each_loop(body, indices, *lead, *static_cast<CompPool2<T>*>(scope.pools[I])...);
+    }(std::index_sequence_for<T...>{});
+}
+
+// The pools come by reference on purpose. The loop reads the arrays
+// of the pools on every step, because the body can add components and
+// the arrays can move. With references the compiler can take these reads
+// out of the loop when the body does not change the pools. With the
+// pointers from the scope it can not.
+template<typename F, typename... T, size_t... I>
+inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const CompPool2Base& lead, CompPool2<T>&... pool)
+{
+    // The pass goes from the last slot to the first one: it was measured
+    // to be faster than from the first to the last. Slot 0 is never
+    // used, it is the end. Components that the body adds to the end
+    // of the pool are not visited in this pass.
+    for (DIndex i = static_cast<DIndex>(lead.dense.size()) - 1; i != DIndex_NONE; --i)
+    {
+        const Entity e = lead.dense[i];
+        if (e == Entity_INVALID)
+            continue;
+
+        // One search in a pool gives the place of the component, and
+        // the same search tells that the entity has it. The lead pool
+        // needs no search: its component is in the slot of this step.
+        DIndex di[sizeof...(T)];
+        if ((((di[I] = (&pool == &lead) ? i : pool.dense_index_get(e)) != DIndex_NONE) && ...))
+            body(e, *pool.comp_slot(di[I])...);
+    }
 }
 
 inline GTick World::tick_get()

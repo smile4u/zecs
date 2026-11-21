@@ -141,6 +141,8 @@ struct CompPool2 : public CompPool2Base
     }
 
 private:
+    friend struct World;
+
     bool comp_slot_move(DIndex from, DIndex to) noexcept override
     {
         if constexpr (is_tag_component<T>)

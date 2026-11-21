@@ -69,7 +69,8 @@ struct ViewCompGroup2 : private ViewCompGroupBase
     ViewCompGroup2(Pools pools_) noexcept
         : scope(pools_)
     {
-        scope.move_leading_pool_front();
+        if constexpr (POOL_COUNT > 1)
+            scope.move_leading_pool_front();
     }
 
     inline bool empty() const noexcept { return begin() == end(); }

@@ -16,6 +16,14 @@
 #  define ZECS_HOT_INLINE inline
 #endif
 
+// A field of an empty type that takes no space in its struct.
+// MSVC and clang-cl ignore the standard attribute and need their own.
+#if defined(_MSC_VER)
+#  define ZECS_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#  define ZECS_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+
 namespace zecs
 {
 struct World;

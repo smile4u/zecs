@@ -51,7 +51,11 @@ struct ViewCompGroup2 : private ViewCompGroupBase
     private:
         InternalIt it;
         struct NoView {};
-        [[no_unique_address]] std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup2*> view{};
+
+        // A one-pool group does not use the view, so the field is empty there.
+        // The attribute lets it take no space: without it the iterator
+        // is 8 bytes bigger than the pool iterator.
+        ZECS_NO_UNIQUE_ADDRESS std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup2*> view{};
 
         ZECS_HOT_INLINE void next_matched() noexcept
         {

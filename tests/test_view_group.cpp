@@ -12,6 +12,9 @@ namespace
 template<size_t Index>
 struct GroupTag {};
 
+// A one-pool group has no view pointer in its iterator.
+static_assert(sizeof(zecs::ViewCompGroup2<GroupTag<0>>::It) == sizeof(zecs::CompPool2Base::EntityIt));
+
 struct GroupFixture
 {
     static constexpr size_t count = zecs::ViewCompGroupRt::INLINE_CAPACITY + 2;

@@ -247,9 +247,9 @@ private:
     // A removed slot of `entities` keeps the index of the next free slot
     // and the generation for the entity that will take this slot.
     EntityBase entity_free_index = Entity_INDEX_NONE;
-    // Entities that entity_remove is working on now. It is filled only with
-    // ZECS_DEBUG. The field is always here, so the size of World
-    // does not depend on the build type.
+    // Entities that entity_remove is removing now. The list is used only
+    // when ZECS_DEBUG is defined. The field is always here, so the size
+    // of World is the same in debug and release builds.
     std::vector<Entity> entities_removing;
 
     std::string name;

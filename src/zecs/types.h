@@ -16,15 +16,17 @@
 #  define ZECS_HOT_INLINE inline
 #endif
 
-// A field of an empty type that takes no space in its struct.
-// MSVC and clang-cl ignore the standard attribute and need their own.
+// Put it before a field of an empty type. Then the field takes no space
+// in its struct. MSVC and clang-cl ignore the standard attribute,
+// so they get their own attribute.
 #if defined(_MSC_VER)
 #  define ZECS_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
 #else
 #  define ZECS_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
-// On when asserts are on. For the code that only prepares data for an assert.
+// Defined when asserts are on. Use it for code that only prepares
+// data for an assert.
 #if !defined(NDEBUG)
 #  define ZECS_DEBUG
 #endif

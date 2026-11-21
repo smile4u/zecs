@@ -72,7 +72,7 @@ struct NewPool
     int value = 0;
 };
 
-// Handlers that change the world while entity_remove is at work.
+// Handlers that change the world while entity_remove is running.
 struct EntityRemoveProbe
 {
     void on_removed_make_pools(zecs::World& world, zecs::Entity)
@@ -202,7 +202,7 @@ TEST_CASE("signals_reentrant")
     }
 }
 
-// A handler of on_removed can change the world while entity_remove is at work.
+// A handler of on_removed can change the world while entity_remove is running.
 TEST_CASE("entity_remove_reentrant")
 {
     SUBCASE("a handler can make new pools")

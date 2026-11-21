@@ -58,9 +58,9 @@ bool World::entity_remove(Entity e)
     entities_removing.push_back(e);
 #endif
 
-    // A handler of on_removed can make a new pool, and then the list grows
-    // and moves. So the list is read again after every removal, and
-    // new pools are checked too.
+    // A handler of on_removed can make a new pool. Then the list of pools
+    // grows and can move to new memory. So we read the list again after
+    // every removal. New pools are checked too.
     CompPool2Base** pools = comp_pools_packed.data();
     size_t count = comp_pools_packed.size();
     for (size_t i = 0; i < count; ++i)
@@ -76,7 +76,8 @@ bool World::entity_remove(Entity e)
     }
 
 #ifdef ZECS_DEBUG
-    // A handler can remove other entities, but it ends before this point.
+    // A handler can remove other entities. Each of them leaves the list
+    // before the handler returns, so this entity is the last one here.
     assert(entities_removing.back() == e);
     entities_removing.pop_back();
 #endif

@@ -47,7 +47,12 @@ struct ZECS_EXPORT World
     Entity root();
 
     Entity entity_add();
-    bool entity_remove(Entity e); // false for the root and for an entity that is not valid
+
+    // False for the root and for an entity that is not valid.
+    // The entity is still valid in the handlers of on_removed that run here.
+    // Contract: such a handler does not remove this entity again and does
+    // not add components to it. It is checked by assert.
+    bool entity_remove(Entity e);
 
     bool entity_is_valid(Entity e);
 
@@ -222,6 +227,8 @@ private:
     CompPool2Base* comp_pool_get_impl(CUidIndex index);
     CompPool2Base* comp_pool_add(CUidIndex index, CompPool2CreateFn create_fn);
 
+    bool entity_is_removing(Entity e) const; // only for asserts
+
     using EventDequeCreateFn = EventDequeBase* (*)();
     EventDequeBase* event_pool_get_impl(EUidIndex index);
     EventDequeBase* event_pool_add(EUidIndex index, EventDequeCreateFn create_fn);
@@ -240,6 +247,10 @@ private:
     // A removed slot of `entities` keeps the index of the next free slot
     // and the generation for the entity that will take this slot.
     EntityBase entity_free_index = Entity_INDEX_NONE;
+    // Entities that entity_remove is working on now. It is filled only with
+    // ZECS_DEBUG. The field is always here, so the size of World
+    // does not depend on the build type.
+    std::vector<Entity> entities_removing;
 
     std::string name;
     GTick tick = 0;
@@ -266,6 +277,15 @@ inline bool World::entity_is_valid(Entity e)
     // Entity_INVALID has an index that is never in use.
     size_t eindex = entity_to_index(e);
     return (eindex < entities.size()) && (entities[eindex] == e);
+}
+
+inline bool World::entity_is_removing(Entity e) const
+{
+    for (Entity removing : entities_removing)
+        if (removing == e)
+            return true;
+
+    return false;
 }
 
 inline bool World::comp_remove(Entity e, GUid guid)
@@ -325,7 +345,7 @@ CompPool2<T>* World::comp_pool_get_or_add()
 template<typename T, typename... Args>
 inline T* World::comp_add(Entity e, Args&&... args)
 {
-    assert(entity_is_valid(e));
+    assert(entity_is_valid(e) && !entity_is_removing(e));
     return comp_pool_get_or_add<T>()->add(e, &tick, std::forward<Args>(args)...);
 }
 
@@ -351,7 +371,7 @@ inline T* World::comp_get_sc()
 template<typename T>
 inline T* World::comp_get_or_add(Entity e)
 {
-    assert(entity_is_valid(e));
+    assert(entity_is_valid(e) && !entity_is_removing(e));
     auto res = comp_pool_get_or_add<T>()->get_or_add(e, &tick);
     return res.first;
 }

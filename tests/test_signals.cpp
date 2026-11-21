@@ -66,6 +66,50 @@ struct SignalProbe
     SignalLog* log = nullptr;
 };
 
+template<int Index>
+struct NewPool
+{
+    int value = 0;
+};
+
+// Handlers that change the world while entity_remove is at work.
+struct EntityRemoveProbe
+{
+    void on_removed_make_pools(zecs::World& world, zecs::Entity)
+    {
+        // Every type is new for the world, so the list of pools grows.
+        world.comp_add<NewPool<0>>(world.root());
+        world.comp_add<NewPool<1>>(world.root());
+        world.comp_add<NewPool<2>>(world.root());
+        world.comp_add<NewPool<3>>(world.root());
+        world.comp_add<NewPool<4>>(world.root());
+        world.comp_add<NewPool<5>>(world.root());
+        world.comp_add<NewPool<6>>(world.root());
+        world.comp_add<NewPool<7>>(world.root());
+    }
+
+    void on_removed_remove_other(zecs::World& world, zecs::Entity entity)
+    {
+        ++calls;
+        valid_in_handler = world.entity_is_valid(entity);
+        velocity_in_handler = world.comp_get<test::Velocity>(entity) != nullptr;
+        other_removed = world.entity_remove(other);
+    }
+
+    void on_removed_add_entity(zecs::World& world, zecs::Entity entity)
+    {
+        valid_in_handler = world.entity_is_valid(entity);
+        added = world.entity_add();
+    }
+
+    int calls = 0;
+    bool valid_in_handler = false;
+    bool velocity_in_handler = false;
+    bool other_removed = false;
+    zecs::Entity other = zecs::Entity_INVALID;
+    zecs::Entity added = zecs::Entity_INVALID;
+};
+
 } // namespace
 
 // Covers the most important signal reentrancy scenarios:
@@ -155,5 +199,99 @@ TEST_CASE("signals_reentrant")
             "position/patched"
         };
         CHECK(log.order == expected_order);
+    }
+}
+
+// A handler of on_removed can change the world while entity_remove is at work.
+TEST_CASE("entity_remove_reentrant")
+{
+    SUBCASE("a handler can make new pools")
+    {
+        zecs::World world("remove-new-pools");
+        const zecs::Entity entity = world.entity_add();
+
+        REQUIRE(world.comp_add<test::Position>(entity, 1, 2) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(entity, 3, 4) != nullptr);
+
+        EntityRemoveProbe probe;
+        world.comp_on_removed<test::Position>().Connect(&probe, &EntityRemoveProbe::on_removed_make_pools);
+
+        CHECK(world.entity_remove(entity));
+
+        CHECK(world.view_comps<test::Position>().empty());
+        CHECK(world.view_comps<test::Velocity>().empty());
+        CHECK(world.comp_get_sc<NewPool<7>>() != nullptr);
+    }
+
+    SUBCASE("a handler sees a valid entity and can remove another one")
+    {
+        zecs::World world("remove-other");
+        const zecs::Entity entity = world.entity_add();
+        const zecs::Entity other = world.entity_add();
+
+        REQUIRE(world.comp_add<test::Position>(entity, 1, 2) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(entity, 3, 4) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(other, 5, 6) != nullptr);
+
+        EntityRemoveProbe probe;
+        probe.other = other;
+        world.comp_on_removed<test::Position>().Connect(&probe, &EntityRemoveProbe::on_removed_remove_other);
+
+        CHECK(world.entity_remove(entity));
+
+        CHECK(probe.calls == 1);
+        CHECK(probe.valid_in_handler);
+        CHECK(probe.velocity_in_handler);
+        CHECK(probe.other_removed);
+        CHECK_FALSE(world.entity_is_valid(entity));
+        CHECK_FALSE(world.entity_is_valid(other));
+        CHECK(world.counters_get().entities == 1); // the root
+        CHECK(world.counters_get().components == 0);
+
+        // Each slot is in the free list one time.
+        const zecs::Entity first = world.entity_add();
+        const zecs::Entity second = world.entity_add();
+        const zecs::Entity third = world.entity_add();
+        CHECK(zecs::entity_to_index(first) != zecs::entity_to_index(second));
+        CHECK(zecs::entity_to_index(third) > zecs::entity_to_index(other));
+    }
+
+    SUBCASE("an entity added in a handler does not take the slot of the removed one")
+    {
+        zecs::World world("remove-add");
+        const zecs::Entity entity = world.entity_add();
+
+        REQUIRE(world.comp_add<test::Position>(entity, 1, 2) != nullptr);
+        REQUIRE(world.comp_add<test::Velocity>(entity, 3, 4) != nullptr);
+
+        EntityRemoveProbe probe;
+        world.comp_on_removed<test::Position>().Connect(&probe, &EntityRemoveProbe::on_removed_add_entity);
+
+        CHECK(world.entity_remove(entity));
+
+        CHECK(probe.valid_in_handler);
+        CHECK(world.entity_is_valid(probe.added));
+        CHECK(zecs::entity_to_index(probe.added) != zecs::entity_to_index(entity));
+        CHECK(world.comp_get<test::Velocity>(probe.added) == nullptr);
+
+        // The slot is free only after all components are removed.
+        const zecs::Entity reused = world.entity_add();
+        CHECK(zecs::entity_to_index(reused) == zecs::entity_to_index(entity));
+        CHECK(reused != entity);
+    }
+
+    SUBCASE("comp_remove leaves the entity valid in a handler")
+    {
+        zecs::World world("remove-comp");
+        const zecs::Entity entity = world.entity_add();
+
+        REQUIRE(world.comp_add<test::Position>(entity, 1, 2) != nullptr);
+
+        EntityRemoveProbe probe;
+        world.comp_on_removed<test::Position>().Connect(&probe, &EntityRemoveProbe::on_removed_add_entity);
+
+        CHECK(world.comp_remove<test::Position>(entity));
+        CHECK(probe.valid_in_handler);
+        CHECK(world.entity_is_valid(entity));
     }
 }

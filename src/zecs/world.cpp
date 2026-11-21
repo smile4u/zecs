@@ -51,13 +51,35 @@ bool World::entity_remove(Entity e)
     if (!entity_is_valid(e))
         return false;
 
-    for (CompPool2Base* pool: comp_pools_packed)
+    // The entity stays valid until all its components are removed, so
+    // handlers of on_removed can use it. They must not remove it again.
+    assert(!entity_is_removing(e));
+#ifdef ZECS_DEBUG
+    entities_removing.push_back(e);
+#endif
+
+    // A handler of on_removed can make a new pool, and then the list grows
+    // and moves. So the list is read again after every removal, and
+    // new pools are checked too.
+    CompPool2Base** pools = comp_pools_packed.data();
+    size_t count = comp_pools_packed.size();
+    for (size_t i = 0; i < count; ++i)
     {
         // Most pools do not have this entity. The check
         // should be inline, so we don't pay for a virtual call.
-        if (pool->contains(e))
-            pool->raw_remove(e);
+        if (!pools[i]->contains(e))
+            continue;
+
+        pools[i]->raw_remove(e);
+        pools = comp_pools_packed.data();
+        count = comp_pools_packed.size();
     }
+
+#ifdef ZECS_DEBUG
+    // A handler can remove other entities, but it ends before this point.
+    assert(entities_removing.back() == e);
+    entities_removing.pop_back();
+#endif
 
     const EntityBase eindex = entity_to_index(e);
 
@@ -87,7 +109,7 @@ World::Counters World::counters_get() const
 
 void* World::comp_add(Entity e, GUid guid)
 {
-    assert(entity_is_valid(e));
+    assert(entity_is_valid(e) && !entity_is_removing(e));
     CompPool2Base* pool = comp_pool_get(guid);
     if (!pool)
         return nullptr;
@@ -97,7 +119,7 @@ void* World::comp_add(Entity e, GUid guid)
 
 void* World::comp_get_or_add(Entity e, GUid guid)
 {
-    assert(entity_is_valid(e));
+    assert(entity_is_valid(e) && !entity_is_removing(e));
     CompPool2Base* pool = comp_pool_get(guid);
     if (!pool)
         return nullptr;

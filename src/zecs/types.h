@@ -24,6 +24,11 @@
 #  define ZECS_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
+// On when asserts are on. For the code that only prepares data for an assert.
+#if !defined(NDEBUG)
+#  define ZECS_DEBUG
+#endif
+
 namespace zecs
 {
 struct World;

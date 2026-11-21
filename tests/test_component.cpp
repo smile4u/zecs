@@ -41,7 +41,19 @@ struct OwnPage
     int value = 0;
     char pad[156] = {};
 };
+
+// A type that we can not change. Its page size is set by a specialization.
+struct ForeignPage
+{
+    int value = 0;
+};
 } // namespace
+
+template<>
+struct zecs::CompConfig<ForeignPage> : zecs::CompConfigDefault<ForeignPage>
+{
+    static constexpr size_t page_size = 16;
+};
 
 // Covers typed and runtime component operations on a populated world:
 // add/get/get_or_add/remove, singleton helpers, pool lifecycle and destruction behavior.
@@ -205,6 +217,7 @@ TEST_CASE("component_api")
             CHECK(zecs::CompPool2<Big>::PAGE_SIZE == 512);
             CHECK(zecs::CompPool2<Huge>::PAGE_SIZE == 1);
             CHECK(zecs::CompPool2<OwnPage>::PAGE_SIZE == 8);
+            CHECK(zecs::CompPool2<ForeignPage>::PAGE_SIZE == 16);
 
             // Components keep their values over many pages.
             std::vector<zecs::Entity> entities;

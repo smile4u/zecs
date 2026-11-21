@@ -1,11 +1,11 @@
 #pragma once
 
 #include "zecs/comp_pool_base.h"
+#include "zecs/config.h"
 #include "zecs/mem_pool.h"
 #include "zecs/traits.h"
 #include "zecs/types.h"
 
-#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <type_traits>
@@ -15,23 +15,10 @@
 namespace zecs
 {
 
-// Number of components in one page of a pool: about 64 KB of memory, but not
-// more than 4096 components. The size in bytes is limited so that a pool of
-// big components does not take a lot of memory for its first component.
-// The number is rounded up to a power of two: with pages smaller than 64 KB
-// adding components was measurably slower.
-// A type can set its own number: static constexpr size_t page_size = 256;
-template<typename T, typename = void>
-struct CompPool2PageSize : std::integral_constant<std::size_t,
-    std::min<std::size_t>(4096, std::bit_ceil(std::max<std::size_t>(1, 64 * 1024 / sizeof(T))))> {};
-
-template<typename T>
-struct CompPool2PageSize<T, std::void_t<decltype(T::page_size)>> : std::integral_constant<std::size_t, T::page_size> {};
-
 template<typename T>
 struct CompPool2 : public CompPool2Base
 {
-    static constexpr uint32_t PAGE_SIZE = CompPool2PageSize<T>::value;
+    static constexpr uint32_t PAGE_SIZE = CompConfig<T>::page_size;
     static_assert(std::has_single_bit(PAGE_SIZE));
 
     CompPool2() : CompPool2Base(globalUid<T>, &typeid(T)) {}

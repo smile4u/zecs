@@ -175,10 +175,15 @@ struct CompPool2Base
     void patch(Entity e, GTick* tick) noexcept;
     GTick patch_get(Entity e) const noexcept;
 
+    // Removes the component of the entity. False if the entity has none.
+    // The code is the same for all component types, so it is in the .cpp.
+    // Only the work with the component object is in CompPool2<T>
+    // (see comp_slot_rem).
+    ZECS_EXPORT bool remove(Entity e) noexcept;
+
     virtual void* raw_get(Entity e) const = 0;
     virtual void* raw_add(Entity e, GTick* tick) = 0;
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
-    virtual bool raw_remove(Entity e) = 0;
 
     // Number of dense slots in the pool. It counts the components, the empty
     // slots between them and service slot 0.
@@ -223,12 +228,20 @@ protected:
 
     // Takes a slot, saves the tick and puts the slot at the head of the patch list.
     ZECS_EXPORT DIndex dense_add(Entity e, GTick tick) noexcept;
-    ZECS_EXPORT void dense_rem(DIndex index) noexcept;
+    void dense_rem(DIndex di) noexcept;
+    // Moves the entity, the tick and the patch links of a slot. Not the component.
+    void dense_move(DIndex from, DIndex to) noexcept;
+    // Takes the slot out of the patch list.
+    void patch_rem(DIndex di) noexcept;
     ZECS_EXPORT void dense_patch(DIndex index, GTick tick) noexcept;
     ZECS_EXPORT void patched_emit(Entity e) noexcept;
 
     // Calls the handlers of a signal of this pool.
     inline void signal_emit(const CompPool2Signal& signal, Entity e) noexcept;
+
+    // For remove(): destroy the component in slot `di`. If `from` is
+    // another slot, move its component into `di` after that.
+    virtual void comp_slot_rem(DIndex di, DIndex from) noexcept = 0;
 
     // For compact(): move one component (false if the type can not be moved)
     // and free the pages that `size` slots do not need.

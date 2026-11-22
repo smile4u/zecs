@@ -66,11 +66,11 @@ bool World::entity_remove(Entity e)
     for (size_t i = 0; i < count; ++i)
     {
         // Most pools do not have this entity. The check
-        // should be inline, so we don't pay for a virtual call.
+        // is inline, so we don't pay for a call.
         if (!pools[i]->contains(e))
             continue;
 
-        pools[i]->raw_remove(e);
+        pools[i]->remove(e);
         pools = comp_pools_packed.data();
         count = comp_pools_packed.size();
     }

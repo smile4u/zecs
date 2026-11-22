@@ -294,7 +294,7 @@ inline bool World::entity_is_removing(Entity e) const
 inline bool World::comp_remove(Entity e, GUid guid)
 {
     CompPool2Base* pool = comp_pool_get(guid);
-    return (pool) ? pool->raw_remove(e) : false;
+    return (pool) ? pool->remove(e) : false;
 }
 
 inline void World::comp_patch(Entity e, GUid guid)

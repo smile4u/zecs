@@ -67,25 +67,30 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
     return di;
 }
 
+bool CompPool2Base::remove(Entity e) noexcept
+{
+    assert(!signal_is_running()); // see the contract of the signals
+
+    const DIndex di = dense_index_get(e);
+    if (di == DIndex_NONE)
+        return false;
+
+    // The handlers do not add or remove components of this pool,
+    // so `di` is still correct after them.
+    signal_emit(on_removed, e);
+
+    comp_slot_rem(di, di);
+    dense_rem(di);
+    return true;
+}
+
 void CompPool2Base::dense_rem(DIndex di) noexcept
 {
     assert(dense.size() == ticks.size());
     assert(di < dense.size());
 
-    const DIndex old_prev = patches[di].prev;
-    const DIndex old_next = patches[di].next;
-    const DIndex si = sparse_index_get(dense[di]);
-
-    sparse[si] = DIndex_NONE;
-
-    if (old_prev != DIndex_NONE)
-        patches[old_prev].next = old_next;
-
-    if(old_next != DIndex_NONE)
-        patches[old_next].prev = old_prev;
-
-    if (patch_head == di)
-        patch_head = old_next;
+    sparse[sparse_index_get(dense[di])] = DIndex_NONE;
+    patch_rem(di);
 
     dense[di] = Entity_INVALID;
     // The free list goes through ticks[], not through patches[]:
@@ -97,6 +102,41 @@ void CompPool2Base::dense_rem(DIndex di) noexcept
     dense_count--;
 
     free_head = di;
+}
+
+void CompPool2Base::patch_rem(DIndex di) noexcept
+{
+    const DIndex old_prev = patches[di].prev;
+    const DIndex old_next = patches[di].next;
+
+    if (old_prev != DIndex_NONE)
+        patches[old_prev].next = old_next;
+
+    if (old_next != DIndex_NONE)
+        patches[old_next].prev = old_prev;
+
+    if (patch_head == di)
+        patch_head = old_next;
+}
+
+void CompPool2Base::dense_move(DIndex from, DIndex to) noexcept
+{
+    const Entity e = dense[from];
+    const PatchNode links = patches[from];
+
+    dense[to] = e;
+    ticks[to] = ticks[from];
+    patches[to] = links;
+    sparse[sparse_index_get(e)] = sparse_cell_make(e, to);
+
+    // The neighbours in the patch list must point to the new slot.
+    if (links.prev != DIndex_NONE)
+        patches[links.prev].next = to;
+    else
+        patch_head = to;
+
+    if (links.next != DIndex_NONE)
+        patches[links.next].prev = to;
 }
 
 void CompPool2Base::compact() noexcept
@@ -130,23 +170,7 @@ void CompPool2Base::compact() noexcept
         if (!comp_slot_move(from, to))
             return;
 
-        const Entity e = dense[from];
-        const PatchNode links = patches[from];
-
-        dense[to] = e;
-        ticks[to] = ticks[from];
-        patches[to] = links;
-        sparse[sparse_index_get(e)] = sparse_cell_make(e, to);
-
-        // The neighbours in the patch list must point to the new slot.
-        if (links.prev != DIndex_NONE)
-            patches[links.prev].next = to;
-        else
-            patch_head = to;
-
-        if (links.next != DIndex_NONE)
-            patches[links.next].prev = to;
-
+        dense_move(from, to);
         dense[from] = Entity_INVALID;
     }
 

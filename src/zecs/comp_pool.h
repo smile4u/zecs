@@ -53,11 +53,6 @@ struct CompPool2 : public CompPool2Base
         return get_or_add(e, tick);
     }
 
-    bool raw_remove(Entity e) override
-    {
-        return remove(e);
-    }
-
     inline T* get(Entity e) const noexcept
     {
         // The address is computed from di. A pointer stored for every slot
@@ -114,27 +109,19 @@ struct CompPool2 : public CompPool2Base
         return std::make_pair(comp, comp != nullptr);
     }
 
-    inline bool remove(Entity e) noexcept
-    {
-        assert(!signal_is_running()); // see the contract of the signals
-
-        const DIndex di = dense_index_get(e);
-        if (di == DIndex_NONE)
-            return false;
-
-        // The handlers do not add or remove components of this pool,
-        // so `di` is still correct after them.
-        signal_emit(on_removed, e);
-
-        if constexpr (!is_tag_component<T>)
-            comp_slot(di)->~T();
-
-        dense_rem(di);
-        return true;
-    }
-
 private:
     friend struct World;
+
+    void comp_slot_rem(DIndex di, DIndex from) noexcept override
+    {
+        if constexpr (!is_tag_component<T>)
+        {
+            comp_slot(di)->~T();
+
+            if (from != di)
+                CompPool2::comp_slot_move(from, di);
+        }
+    }
 
     bool comp_slot_move(DIndex from, DIndex to) noexcept override
     {

@@ -21,6 +21,8 @@ CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_)
 
 DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
 {
+    assert(!signal_is_running()); // see the contract of the signals
+
     const DIndex si = sparse_index_get(e);
 
     // Grow the sparse table lazily to cover this entity; dense_index_get() pays
@@ -192,6 +194,6 @@ void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept
 
 void CompPool2Base::patched_emit(Entity e) noexcept
 {
-    on_patched.Emit(*world, e);
+    signal_emit(on_patched, e);
 }
 } // namespace zecs

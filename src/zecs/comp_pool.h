@@ -90,7 +90,9 @@ struct CompPool2 : public CompPool2Base
                 comp = ::new (comp_slot_ensure(di)) T(std::forward<Args>(args)...);
             }
 
-            on_added.Emit(*world, e);
+            // The handlers do not add or remove components of this pool,
+            // so the pointer is still correct after them.
+            signal_emit(on_added, e);
             return comp;
         }
         else
@@ -114,11 +116,15 @@ struct CompPool2 : public CompPool2Base
 
     inline bool remove(Entity e) noexcept
     {
+        assert(!signal_is_running()); // see the contract of the signals
+
         const DIndex di = dense_index_get(e);
         if (di == DIndex_NONE)
             return false;
 
-        on_removed.Emit(*world, e);
+        // The handlers do not add or remove components of this pool,
+        // so `di` is still correct after them.
+        signal_emit(on_removed, e);
 
         if constexpr (!is_tag_component<T>)
             comp_slot(di)->~T();

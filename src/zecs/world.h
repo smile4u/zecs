@@ -99,6 +99,9 @@ struct ZECS_EXPORT World
     void comp_patch(Entity e, T* comp); // same as comp_patch<T>(e): the pointer only tells the type
     void comp_patch(Entity e, GUid guid);
 
+    // The signals of a component type. See the contract of their handlers
+    // in comp_pool_base.h: a handler does not add or remove components
+    // of this type and does not connect or disconnect its handlers.
     template<typename T>
     CompPool2Signal& comp_on_added();
 
@@ -414,19 +417,25 @@ inline void World::comp_patch(Entity e, T* comp)
 template<typename  T>
 inline CompPool2Signal& World::comp_on_added()
 {
-    return comp_pool_get_or_add<T>()->on_added;
+    auto* pool = comp_pool_get_or_add<T>();
+    assert(!pool->signal_is_running()); // see the contract of the signals
+    return pool->on_added;
 }
 
 template<typename  T>
 inline CompPool2Signal& World::comp_on_removed()
 {
-    return comp_pool_get_or_add<T>()->on_removed;
+    auto* pool = comp_pool_get_or_add<T>();
+    assert(!pool->signal_is_running()); // see the contract of the signals
+    return pool->on_removed;
 }
 
 template<typename T>
 inline CompPool2Signal& World::comp_on_patched()
 {
-    return comp_pool_get_or_add<T>()->on_patched;
+    auto* pool = comp_pool_get_or_add<T>();
+    assert(!pool->signal_is_running()); // see the contract of the signals
+    return pool->on_patched;
 }
 
 template<typename T>

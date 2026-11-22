@@ -295,3 +295,35 @@ TEST_CASE("entity_remove_reentrant")
         CHECK(world.entity_is_valid(entity));
     }
 }
+
+// The contract of the handlers lets them change components of other types.
+// A handler that changes its own pool stops on an assert, so it has no test.
+TEST_CASE("signals: a pool knows when its handlers are running")
+{
+    struct Probe
+    {
+        void on_signal(zecs::World& world, zecs::Entity)
+        {
+            running = world.comp_pool_get<test::Position>()->signal_is_running();
+            other_running = world.comp_pool_get_or_add<test::Velocity>()->signal_is_running();
+        }
+
+        bool running = false;
+        bool other_running = true;
+    };
+
+    zecs::World world;
+    const zecs::Entity entity = world.entity_add();
+
+    Probe probe;
+    world.comp_on_added<test::Position>().Connect(&probe, &Probe::on_signal);
+    world.comp_add<test::Position>(entity);
+
+#ifdef ZECS_DEBUG
+    CHECK(probe.running);
+#else
+    CHECK_FALSE(probe.running);
+#endif
+    CHECK_FALSE(probe.other_running);
+    CHECK_FALSE(world.comp_pool_get<test::Position>()->signal_is_running());
+}

@@ -199,9 +199,20 @@ struct CompPool2Base
     const GUid guid;
     const std::type_info* const type;
 
+    // on_added is called after the component is made.
+    // on_removed is called before the component is destroyed.
+    // Contract for the handlers. It is checked by assert.
+    //   - A handler does not add or remove components of this pool.
+    //     It can change components of other types: for example,
+    //     on_removed can remove the other components of the entity.
+    //   - A handler does not connect or disconnect handlers of this pool.
     CompPool2Signal on_added;
     CompPool2Signal on_removed;
     CompPool2Signal on_patched;
+
+    // True while a signal of this pool is calling its handlers.
+    // Use it only in asserts: without ZECS_DEBUG it is always false.
+    inline bool signal_is_running() const noexcept { return signal_depth != 0; }
 
 protected:
     friend struct World;
@@ -215,6 +226,9 @@ protected:
     ZECS_EXPORT void dense_rem(DIndex index) noexcept;
     ZECS_EXPORT void dense_patch(DIndex index, GTick tick) noexcept;
     ZECS_EXPORT void patched_emit(Entity e) noexcept;
+
+    // Calls the handlers of a signal of this pool.
+    inline void signal_emit(const CompPool2Signal& signal, Entity e) noexcept;
 
     // For compact(): move one component (false if the type can not be moved)
     // and free the pages that `size` slots do not need.
@@ -233,7 +247,25 @@ protected:
 
     DIndex free_head = DIndex_NONE;
     DIndex patch_head = DIndex_NONE;
+
+    // Number of signals of this pool that are calling handlers now.
+    // It is counted only when ZECS_DEBUG is defined. The field is always
+    // here, so the size of the pool is the same in debug and release builds.
+    uint32_t signal_depth = 0;
 };
+
+inline void CompPool2Base::signal_emit(const CompPool2Signal& signal, Entity e) noexcept
+{
+#ifdef ZECS_DEBUG
+    ++signal_depth;
+#endif
+
+    signal.Emit(*world, e);
+
+#ifdef ZECS_DEBUG
+    --signal_depth;
+#endif
+}
 
 constexpr size_t CompPool2Base::dense_size() const noexcept
 {

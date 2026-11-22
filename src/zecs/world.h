@@ -328,8 +328,13 @@ inline void* World::comp_get(Entity e, GUid guid)
 template<typename T>
 inline CompPool2<T>* World::comp_pool_get()
 {
-    const CUidIndex cindex = cuidIndex<T>;    
-    return static_cast<CompPool2<T>*>(comp_pool_get_impl(cindex));
+    // No pool has index 0, so a type without an index gives nullptr here:
+    // see cuidIndex in guid.h.
+    const CUidIndex cindex = cuidIndex<T>;
+    CompPool2Base* ret = comp_pool_get_impl(cindex);
+
+    assert(!ret || *ret->type == typeid(T)); // two types with the same name
+    return static_cast<CompPool2<T>*>(ret);
 }
 
 inline CompPool2Base* World::comp_pool_get(GUid guid)
@@ -347,13 +352,24 @@ inline CompPool2Base* World::comp_pool_get_impl(CUidIndex cindex)
 template<typename T>
 CompPool2<T>* World::comp_pool_get_or_add()
 {
-    const CUidIndex cindex = cuidIndex<T>;
+    CUidIndex cindex = cuidIndex<T>;
     CompPool2Base* ret = comp_pool_get_impl(cindex);
     if (!ret)
     {
-        ret = comp_pool_add(cindex, []() -> CompPool2Base* { return new CompPool2<T>(); });
+        // The type has no index yet: see cuidIndex in guid.h. Set it now,
+        // so the next search finds this pool.
+        if (cindex == CUidIndex_NONE) [[unlikely]]
+        {
+            cindex = cuid_index_register(globalUid<T>, guid_name<T>());
+            cuidIndex<T> = cindex;
+            ret = comp_pool_get_impl(cindex);
+        }
+
+        if (!ret)
+            ret = comp_pool_add(cindex, []() -> CompPool2Base* { return new CompPool2<T>(); });
     }
 
+    assert(*ret->type == typeid(T)); // two types with the same name
     return static_cast<CompPool2<T>*>(ret);
 }
 

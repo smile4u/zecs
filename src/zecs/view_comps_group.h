@@ -79,8 +79,9 @@ struct ViewCompGroup2 : private ViewCompGroupBase
 
     inline bool empty() const noexcept { return begin() == end(); }
 
-    // Each pass snapshots the lead pool's current dense bounds. The view owns
-    // only its pool pointers; active iterators require it to stay in place.
+    // A pass starts from the last slot of the lead pool (see EntityIt).
+    // The view owns only its pool pointers. Its iterators point to the view,
+    // so the view must stay in place while they are used.
     inline It begin() const noexcept
     {
         const CompPool2Base* lead = scope.pools[0];
@@ -90,8 +91,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         return It(lead->entities_begin(), this);
     }
 
-    // The bound belongs to the begin iterator, so even repeated end() calls
-    // during a pass cannot extend it when new dense slots are appended.
+    // The end is slot 0, so it does not move when the pool grows.
     inline It end() const noexcept { return It(); }
 
     inline bool has(Entity e) const noexcept

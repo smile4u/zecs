@@ -7,9 +7,10 @@
 namespace zecs
 {
 
-CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_)
+CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_, bool stable_pointers_)
     : guid(guid_)
     , type(type_)
+    , stable_pointers(stable_pointers_)
 {
     // Add slot 0. It is never used for a real component:
     // its entity is Entity_INVALID forever.
@@ -38,10 +39,22 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
     // A new component is the newest one: it becomes the head of the patch list.
     const PatchNode links{ patch_head, DIndex_NONE };
 
-    DIndex di = free_head;
-    if (di == DIndex_NONE)
+    // Without stable pointers the components fill the first slots,
+    // so the new slot is the one after them (see dense_rem).
+    // With stable pointers the slot comes from the free list.
+    DIndex di = static_cast<DIndex>(dense.size());
+    if (!stable_pointers)
     {
-        di = static_cast<DIndex>(dense.size());
+        di = dense_last() + 1;
+    }
+    else if (free_head != DIndex_NONE)
+    {
+        di = free_head;
+        free_head = patches[di].next;
+    }
+
+    if (di == dense.size())
+    {
         assert(di <= Entity_INDEX_MASK); // the high bits of sparse[] are for the generation
 
         dense.push_back(e);
@@ -50,7 +63,7 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
     }
     else
     {
-        free_head = static_cast<DIndex>(ticks[di]);
+        assert(dense[di] == Entity_INVALID);
 
         dense[di] = e;
         ticks[di] = tick;
@@ -79,29 +92,42 @@ bool CompPool2Base::remove(Entity e) noexcept
     // so `di` is still correct after them.
     signal_emit(on_removed, e);
 
-    comp_slot_rem(di, di);
-    dense_rem(di);
+    // The slot that becomes empty. With stable pointers it is the slot
+    // of the component. Without them the last component moves into
+    // this slot, so the last slot becomes empty.
+    const DIndex empty = stable_pointers ? di : dense_last();
+
+    comp_slot_rem(di, empty);
+    dense_rem(di, empty);
     return true;
 }
 
-void CompPool2Base::dense_rem(DIndex di) noexcept
+void CompPool2Base::dense_rem(DIndex di, DIndex empty) noexcept
 {
-    assert(dense.size() == ticks.size());
-    assert(di < dense.size());
+    assert(di != DIndex_NONE && di < dense.size());
+    assert(dense_count > 0);
 
     sparse[sparse_index_get(dense[di])] = DIndex_NONE;
     patch_rem(di);
 
-    dense[di] = Entity_INVALID;
-    // The free list goes through ticks[], not through patches[]:
-    // a removed slot keeps its old patch links, so a PatchIt that
-    // stands on it can still move on.
-    ticks[di] = free_head;
+    if (empty != di)
+        dense_move(empty, di);
 
-    assert(dense_count > 0);
+    // An empty slot has no entity and no tick. EntityIt skips a slot
+    // without an entity. PatchIt sees by the tick that its node left
+    // the slot. `dense` does not get shorter: a pass that is running
+    // can still read the slot, so it needs no check of the size.
+    dense[empty] = Entity_INVALID;
+    ticks[empty] = GTick_INVALID;
     dense_count--;
 
-    free_head = di;
+    // Only a pool with stable pointers needs a list of empty slots.
+    // The list uses the patch links of the empty slots.
+    if (stable_pointers)
+    {
+        patches[empty].next = free_head;
+        free_head = empty;
+    }
 }
 
 void CompPool2Base::patch_rem(DIndex di) noexcept
@@ -142,7 +168,7 @@ void CompPool2Base::dense_move(DIndex from, DIndex to) noexcept
 void CompPool2Base::compact() noexcept
 {
     // No empty slots: nothing to do, and the arrays are not copied.
-    if (free_head == DIndex_NONE)
+    if (dense.size() == dense_count + DIndex_FIRST)
         return;
 
     // Cut the empty end of sparse[]. It is done before the moves,

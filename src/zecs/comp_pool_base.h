@@ -19,9 +19,8 @@ struct ViewCompGroup2;
 
 struct CompPool2Base
 {
-    // Links of the patch list. The free list does not use these links
-    // (it uses `ticks`). So a removed slot keeps its old links, and
-    // a PatchIt that stands on it can still move on (see dense_rem).
+    // Links of the patch list. An empty slot of a pool with stable pointers
+    // keeps the next empty slot in `next`: this is the free list.
     struct PatchNode
     {
         DIndex next = DIndex_NONE;
@@ -33,37 +32,23 @@ struct CompPool2Base
     using Patches = std::vector<PatchNode>;
     using Sparse = std::vector<DIndex>;
 
-    // Goes through the entities of one pool.
-    // The end is saved when the pass starts, also when end() is called again.
-    // A component added during the pass may be visited or not: it can
-    // take a free slot before the end. There is no guarantee.
+    // Goes through the entities of one pool, from the last slot to the first.
+    // Why from the end: a pool without stable pointers moves its last
+    // component into the slot of a removed one (see stable_pointers in
+    // config.h). A pass from the end has visited the last component already.
+    // So the loop body can remove the current component, and the pass skips
+    // no entity. A pass from the start would skip the moved component.
+    // A component added during the pass may be visited or not: with
+    // stable pointers it can take an empty slot that the pass did not reach.
     struct EntityIt
     {
-        // The end iterator.
+        // The end iterator. Slot 0 is never used for a component, so it is the end.
         inline EntityIt() noexcept = default;
 
-        // `>=` is the opposite of the check in next_matched(),
-        // so the compiler joins the two checks into one.
-        inline bool at_end() const noexcept { return index >= dense_size; }
-
-        // Two end iterators are always equal, also from different passes.
-        inline bool operator==(const EntityIt& other) const noexcept
-        {
-            // `&` and `|` always compute both sides, so there are no jumps
-            // like with `&&` and `||`. It is faster in the loop. It is safe
-            // here: both sides are plain bool. Example: (a & b) | c.
-            // It is not safe when the right side needs the left one: p && p->x.
-            //
-            // Written in this form for MSVC: against end() `b` is a known true,
-            // and the whole line becomes just `a`. The shorter form
-            // (a == b) & (a | same index) was left by MSVC as 7 instructions.
-            const bool a = at_end();
-            const bool b = other.at_end();
-            return (a & b) | (!a & !b & (index == other.index));
-        }
-
-        inline EntityIt& operator++() noexcept { index++; next_matched(); return *this; }
-        inline Entity operator*() const noexcept { return dense->operator[](index); }
+        inline bool at_end() const noexcept { return index == DIndex_NONE; }
+        inline bool operator==(const EntityIt& other) const noexcept { return index == other.index; }
+        inline EntityIt& operator++() noexcept { index--; next_matched(); return *this; }
+        inline Entity operator*() const noexcept { return entity; }
 
     private:
         friend struct CompPool2Base;
@@ -72,35 +57,47 @@ struct CompPool2Base
 
         // Goes to the next slot, also when it is empty. Only for a group view:
         // it checks the entity of every slot anyway.
-        inline void step() noexcept { index++; }
+        inline void step() noexcept { index--; entity = dense->operator[](index); }
 
-        inline EntityIt(const Dense* dense_) noexcept
-            : index(DIndex_FIRST)
+        inline EntityIt(const Dense* dense_, size_t last) noexcept
+            : index(last)
             , dense(dense_)
-            , dense_size(static_cast<DIndex>(dense_->size()))
         {
             next_matched();
         }
 
         inline void next_matched() noexcept
         {
-            while (index < dense_size && dense->operator[](index) == Entity_INVALID) index++;
+            // The entity is checked first: most slots are not empty, and then
+            // this is the only check. Slot 0 is always empty, so it stops
+            // the loop. A slot that the loop body made empty has no entity
+            // too (see dense_rem), so the pool size is not checked here.
+            entity = dense->operator[](index);
+            while (entity == Entity_INVALID && index != DIndex_NONE)
+            {
+                index--;
+                entity = dense->operator[](index);
+            }
         }
 
-        // The pointer is between the two numbers on purpose. Side by side they
-        // are packed into one register, and that makes the loop about 2x slower.
-        DIndex index = 0;
+        // size_t, not DIndex. Measured: with a 32-bit index the loop
+        // of a group view with many pools is about 20% slower.
+        size_t index = DIndex_NONE;
         const Dense* dense = nullptr;
-        DIndex dense_size = 0;
+        // The entity of the current slot. operator* returns it and does not
+        // read the slot again. Measured: view loops are up to 10% faster.
+        Entity entity = Entity_INVALID;
     };
 
     // Goes through the patch list from new to old.
-    // It is safe to add, remove or patch components inside the loop.
-    // Rule: every new patch tick is bigger than all old ones.
+    // The loop body can add, remove or patch any component: the pass
+    // skips no entity and visits no entity two times.
+    // How it works: every new tick is bigger than all old ones, so no two
+    // components of a pool have the same tick. If a slot has the same tick
+    // as before, it has the same component in the same place of the list.
+    // An empty slot has GTick_INVALID. No component has this tick.
     // A component that is added or patched inside the loop moves to the head
     // of the list, so this pass does not visit it; the next pass does.
-    // A body that patches the next node on every step makes the pass slow
-    // (see the search from the head in move_to).
     struct PatchIt
     {
         inline PatchIt() noexcept = default;
@@ -109,62 +106,75 @@ struct CompPool2Base
             : since(since_)
             , pool(pool_)
         {
-            move_to(pool->patch_head);
+            move_to(pool->patch_head, pool->ticks[pool->patch_head]);
         }
 
         inline bool operator==(const PatchIt& other) const noexcept { return head == other.head; }
-        inline PatchIt& operator++() noexcept { move_to(next); return *this; }
         inline Entity operator*() const noexcept { return pool->dense[head]; }
-        inline GTick tick() const noexcept { return pool->ticks[head]; }
+        inline GTick tick() const noexcept { return cur_tick; }
 
-    private:
-        // Moves to node `n`, or to the first good node after it.
-        inline void move_to(DIndex n) noexcept
+        inline PatchIt& operator++() noexcept
         {
-            while (n != DIndex_NONE)
+            // The next node was saved before the loop body. If its slot still
+            // has the same tick, the body did not remove, patch or move it.
+            DIndex n = next;
+            GTick t = next_tick;
+            if (pool->ticks[n] != t) [[unlikely]]
             {
-                // Removed slot: skip it. Its old link still works (see dense_rem).
-                if (pool->dense[n] == Entity_INVALID)
+                if (pool->ticks[head] == t)
                 {
-                    n = pool->patches[n].next;
-                    continue;
+                    // The body removed the current node, and the next node
+                    // was the last one: the pool moved it into this slot.
+                    n = head;
                 }
-
-                // The next node must be older than the current one. If it is not,
-                // the loop body patched it or reused its slot, and its link goes
-                // back to the start of the list. Search from the head instead.
-                const GTick t = pool->ticks[n];
-                if (t >= cur_tick) [[unlikely]]
+                else if (pool->ticks[head] == cur_tick)
                 {
-                    n = pool->patch_head;
-                    while (n != DIndex_NONE && pool->ticks[n] >= cur_tick)
-                        n = pool->patches[n].next;
-
-                    continue;
+                    // The current node did not change, so its link is correct.
+                    n = pool->patches[head].next;
                 }
-
-                if (t < since)
-                    n = DIndex_NONE;
                 else
-                    cur_tick = t;
+                {
+                    // The body changed both nodes. Search from the head of
+                    // the list for the first node older than the current one.
+                    // The pass is slow if the body does it on every step.
+                    n = pool->patch_head;
+                    while (pool->ticks[n] >= cur_tick && n != DIndex_NONE)
+                        n = pool->patches[n].next;
+                }
 
-                break;
+                t = pool->ticks[n];
             }
 
-            // Save the next link now: the loop body can patch or replace
-            // the current node, and then its link is not correct anymore.
+            move_to(n, t);
+            return *this;
+        }
+
+    private:
+        // Moves to node `n` with tick `t`. Slot 0 is the end. It can be
+        // read like a node: its tick is GTick_INVALID and its link is 0.
+        inline void move_to(DIndex n, GTick t) noexcept
+        {
+            if (n == DIndex_NONE || t < since)
+                n = DIndex_NONE;
+            else
+                cur_tick = t;
+
+            // Save the next node now. The loop body can patch, move or
+            // remove the current node, and then its link is not correct.
             head = n;
             next = pool->patches[n].next;
+            next_tick = pool->ticks[next];
         }
 
         GTick since = 0;
         GTick cur_tick = GTick_INVALID; // tick of the current node; starts above any real tick
+        GTick next_tick = GTick_INVALID; // tick of `next`: shows later if the node is still in the slot
         const CompPool2Base* pool = nullptr;
         DIndex head = DIndex_NONE;
         DIndex next = DIndex_NONE; // link of the current node, saved before the loop body runs
     };
 
-    ZECS_EXPORT CompPool2Base(GUid guid_, const std::type_info* type_);
+    ZECS_EXPORT CompPool2Base(GUid guid_, const std::type_info* type_, bool stable_pointers_);
     virtual ~CompPool2Base() = default;
 
     constexpr bool empty() const noexcept;
@@ -185,9 +195,10 @@ struct CompPool2Base
     virtual void* raw_add(Entity e, GTick* tick) = 0;
     virtual std::pair<void*, bool> raw_get_or_add(Entity e, GTick* tick) = 0;
 
-    // Number of dense slots in the pool. It counts the components, the empty
-    // slots between them and service slot 0.
-    constexpr size_t dense_size() const noexcept;
+    // The last dense slot that a pass over the pool visits. A pass goes
+    // from this slot to slot 1, so the number is also the length of a pass:
+    // the components and the empty slots between them.
+    constexpr DIndex dense_last() const noexcept;
 
     // Moves components from the end into the empty slots and frees the memory.
     // Pointers to moved components are not valid after it, and the order
@@ -195,7 +206,7 @@ struct CompPool2Base
     // Components that can not be moved stay in their slots.
     ZECS_EXPORT void compact() noexcept;
 
-    inline EntityIt entities_begin() const noexcept { return EntityIt(&dense); }
+    inline EntityIt entities_begin() const noexcept { return EntityIt(&dense, dense_last()); }
     inline PatchIt patches_begin(GTick since) const noexcept { return PatchIt(since, this); }
     inline PatchIt patches_end() const noexcept { return PatchIt(); }
     inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? ticks[patch_head] < since : true; }
@@ -203,6 +214,8 @@ struct CompPool2Base
     // The component type of this pool. Set once by CompPool2<T>.
     const GUid guid;
     const std::type_info* const type;
+    // See stable_pointers in config.h.
+    const bool stable_pointers;
 
     // on_added is called after the component is made.
     // on_removed is called before the component is destroyed.
@@ -228,7 +241,10 @@ protected:
 
     // Takes a slot, saves the tick and puts the slot at the head of the patch list.
     ZECS_EXPORT DIndex dense_add(Entity e, GTick tick) noexcept;
-    void dense_rem(DIndex di) noexcept;
+    // Removes the entity of slot `di`. `empty` is the slot that becomes
+    // empty. It is `di`, or it is the last slot: then the last slot
+    // moves into `di` first.
+    void dense_rem(DIndex di, DIndex empty) noexcept;
     // Moves the entity, the tick and the patch links of a slot. Not the component.
     void dense_move(DIndex from, DIndex to) noexcept;
     // Takes the slot out of the patch list.
@@ -280,9 +296,12 @@ inline void CompPool2Base::signal_emit(const CompPool2Signal& signal, Entity e) 
 #endif
 }
 
-constexpr size_t CompPool2Base::dense_size() const noexcept
+constexpr DIndex CompPool2Base::dense_last() const noexcept
 {
-    return dense.size();
+    // Without stable pointers the components are in the slots from 1 to
+    // dense_count. `dense` can be longer: the slots after them are empty
+    // (see dense_rem).
+    return static_cast<DIndex>(stable_pointers ? dense.size() - 1 : dense_count);
 }
 
 constexpr bool CompPool2Base::empty() const noexcept

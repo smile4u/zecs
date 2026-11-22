@@ -61,6 +61,9 @@ struct ZECS_EXPORT World
     // ------------------------------------------
     // Contract: comp_add needs an entity that does not have this component yet.
     // It is checked by assert. Use comp_get_or_add when it may be there.
+    // A pointer to a component is valid until a component of the same type
+    // is removed. To keep pointers valid longer, see stable_pointers
+    // in config.h.
 
     template<typename T, typename... Args>
     T* comp_add(Entity e, Args&&... args);
@@ -144,6 +147,9 @@ struct ZECS_EXPORT World
     // Views API
     // NOTE-1: Views are non-copyable and non-movable.
     // NOTE-2: Keep a view alive while using its iterators.
+    // NOTE-3: A loop body can add components and can remove the components
+    //         of the current entity. Before you remove components of other
+    //         entities in a loop, read about stable_pointers in config.h.
     // ------------------------------------------
 
     ViewPools view_pools();
@@ -198,8 +204,10 @@ struct ZECS_EXPORT World
     // of the types of the scope: there is no need to get them in the body.
     //   world.query_for_each(scope, [](Entity e, Position& p, Velocity& v) { ... });
     // The order of the entities is not fixed, and it is not the order of a view.
-    // The body can add and remove components and entities. A component
-    // that the body adds can be visited in the same pass or not.
+    // The body can add components and entities, and can remove the
+    // components of the current entity. Before you remove components of
+    // other entities in the body, read about stable_pointers in config.h.
+    // A component that the body adds can be visited in the same pass or not.
     // Do not call compact() in the body.
     template<typename... T, typename F>
     void query_for_each(const QueryScope<T...>& scope, F&& body);
@@ -208,8 +216,9 @@ struct ZECS_EXPORT World
     // Utility API
     // ------------------------------------------
 
-    // Frees the memory left after removed components. Loops over views
-    // get faster too: they have no empty slots to skip.
+    // Frees the memory left after removed components. In the pools with
+    // stable pointers it also fills the empty slots, so loops over
+    // their views get faster.
     // Call it after many components were removed, like at the end of a level.
     // Pointers to components are not valid after it, and the order of
     // entities in views changes. Do not call it inside a view loop.
@@ -565,7 +574,7 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
     // the pass visits empty slots too.
     const CompPool2Base* lead = scope.pools[0];
     for (const CompPool2Base* pool : scope.pools)
-        if (pool->dense_size() < lead->dense_size())
+        if (pool->dense_last() < lead->dense_last())
             lead = pool;
 
     // The pools of the scope stand in the order of its types.
@@ -583,11 +592,11 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
 template<typename F, typename... T, size_t... I>
 inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const CompPool2Base& lead, CompPool2<T>&... pool)
 {
-    // The pass goes from the last slot to the first one: it was measured
-    // to be faster than from the first to the last. Slot 0 is never
-    // used, it is the end. Components that the body adds to the end
-    // of the pool are not visited in this pass.
-    for (DIndex i = static_cast<DIndex>(lead.dense.size()) - 1; i != DIndex_NONE; --i)
+    // The pass goes from the last slot to slot 1. EntityIt does the same,
+    // and the reason is written there.
+    // The index is DIndex, not size_t like in EntityIt. Measured: this
+    // loop is a few percent faster with a 32-bit index.
+    for (DIndex i = lead.dense_last(); i != DIndex_NONE; --i)
     {
         const Entity e = lead.dense[i];
         if (e == Entity_INVALID)

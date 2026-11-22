@@ -38,7 +38,7 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
 
     inline bool empty() const noexcept { return begin() == end(); }
     It begin() const noexcept;
-    // Each begin iterator owns its traversal bound, including during mutation.
+    // The end is slot 0, so it does not move when the pool grows.
     inline It end() const noexcept { return It(); }
 
     inline bool has(Entity e) const noexcept

@@ -8,6 +8,15 @@
 namespace
 {
 
+// Its pool keeps a removed slot empty, and a new component takes it again.
+struct StablePosition
+{
+    static constexpr bool stable_pointers = true;
+
+    int x = 0;
+    int y = 0;
+};
+
 template<typename View>
 constexpr bool view_has_stable_identity =
     !std::is_copy_constructible_v<View> && !std::is_move_constructible_v<View>
@@ -88,12 +97,7 @@ TEST_CASE("view_api")
     {
         const auto entities = test::collect_entities(fx.world.view_comps<test::Position>());
 
-        REQUIRE(entities.size() == 5);
-        CHECK(entities[0] == fx.position_only);
-        CHECK(entities[1] == fx.in_group_a);
-        CHECK(entities[2] == fx.in_group_b);
-        CHECK(entities[3] == fx.patch_first);
-        CHECK(entities[4] == fx.patch_second);
+        CHECK(test::sorted(entities) == test::sorted({ fx.position_only, fx.in_group_a, fx.in_group_b, fx.patch_first, fx.patch_second }));
     }
 
     SUBCASE("view_comps runtime guid overload matches typed view")
@@ -141,46 +145,36 @@ TEST_CASE("view_api")
             CHECK(fx.world.comp_remove<test::Position>(entity));
         }
 
-        REQUIRE(visited.size() == 5);
-        CHECK(visited[0] == fx.position_only);
-        CHECK(visited[1] == fx.in_group_a);
-        CHECK(visited[2] == fx.in_group_b);
-        CHECK(visited[3] == fx.patch_first);
-        CHECK(visited[4] == fx.patch_second);
+        CHECK(test::sorted(visited) == test::sorted({ fx.position_only, fx.in_group_a, fx.in_group_b, fx.patch_first, fx.patch_second }));
         CHECK(test::collect_entities(fx.world.view_comps<test::Position>()).empty());
     }
 
-    SUBCASE("view_comps skips future entity removed from the same view mid pass")
+    SUBCASE("view_comps can remove an entity that the pass visited already")
     {
+        // Position has no stable pointers. So the body must not remove
+        // the component of an entity that the pass did not visit yet
+        // (see stable_pointers in config.h). It can remove the component
+        // of an entity that the pass visited already.
         std::vector<zecs::Entity> visited;
-        bool removed_future = false;
 
         for (zecs::Entity entity : fx.world.view_comps<test::Position>())
         {
             visited.push_back(entity);
 
-            if (!removed_future)
-            {
-                fx.world.entity_remove(fx.patch_first);
-                removed_future = true;
-            }
+            if (visited.size() == 3)
+                fx.world.entity_remove(visited[0]);
         }
 
-        REQUIRE(visited.size() == 4);
-        CHECK(visited[0] == fx.position_only);
-        CHECK(visited[1] == fx.in_group_a);
-        CHECK(visited[2] == fx.in_group_b);
-        CHECK(visited[3] == fx.patch_second);
-        CHECK(fx.world.comp_get<test::Position>(fx.patch_first) == nullptr);
+        CHECK(test::sorted(visited) == test::sorted({ fx.position_only, fx.in_group_a, fx.in_group_b, fx.patch_first, fx.patch_second }));
+        CHECK(fx.world.comp_get<test::Position>(visited[0]) == nullptr);
+        CHECK(test::collect_entities(fx.world.view_comps<test::Position>()).size() == 4);
     }
 
     SUBCASE("view_comp_group returns intersection of component sets")
     {
         const auto entities = test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>());
 
-        REQUIRE(entities.size() == 2);
-        CHECK(entities[0] == fx.in_group_a);
-        CHECK(entities[1] == fx.in_group_b);
+        CHECK(test::sorted(entities) == test::sorted({ fx.in_group_a, fx.in_group_b }));
     }
 
     SUBCASE("view_comp_group is empty when pools exist but do not overlap")
@@ -228,9 +222,7 @@ TEST_CASE("view_api")
             fx.world.entity_remove(entity);
         }
 
-        REQUIRE(visited.size() == 2);
-        CHECK(visited[0] == fx.in_group_a);
-        CHECK(visited[1] == fx.in_group_b);
+        CHECK(test::sorted(visited) == test::sorted({ fx.in_group_a, fx.in_group_b }));
         CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).empty());
     }
 
@@ -249,9 +241,7 @@ TEST_CASE("view_api")
             fx.world.entity_remove(entity);
         }
 
-        REQUIRE(visited.size() == 2);
-        CHECK(visited[0] == fx.in_group_a);
-        CHECK(visited[1] == fx.in_group_b);
+        CHECK(test::sorted(visited) == test::sorted({ fx.in_group_a, fx.in_group_b }));
         CHECK(test::collect_entities(fx.world.view_comp_group(guids.data(), guids.size())).empty());
     }
 
@@ -265,56 +255,55 @@ TEST_CASE("view_api")
             CHECK(fx.world.comp_remove<test::Velocity>(entity));
         }
 
-        REQUIRE(visited.size() == 2);
-        CHECK(visited[0] == fx.in_group_a);
-        CHECK(visited[1] == fx.in_group_b);
+        CHECK(test::sorted(visited) == test::sorted({ fx.in_group_a, fx.in_group_b }));
         CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).empty());
     }
 
-    SUBCASE("view_comp_group skips future entity removed during traversal")
+    SUBCASE("view_comp_group can remove an entity that the pass visited already")
     {
+        // The pass goes over Velocity, and it has no stable pointers. So the
+        // body must not remove the Velocity of an entity that the pass
+        // did not visit yet. It can remove it from a visited entity.
         std::vector<zecs::Entity> visited;
-        bool removed_future = false;
 
         for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
         {
             visited.push_back(entity);
 
-            if (!removed_future)
-            {
-                fx.world.entity_remove(fx.in_group_b);
-                removed_future = true;
-            }
+            if (visited.size() == 2)
+                fx.world.entity_remove(visited[0]);
         }
 
-        REQUIRE(visited.size() == 1);
-        CHECK(visited[0] == fx.in_group_a);
-        CHECK_FALSE(fx.world.entity_is_valid(fx.in_group_b));
-        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).size() == 1);
-        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>())[0] == fx.in_group_a);
+        CHECK(test::sorted(visited) == test::sorted({ fx.in_group_a, fx.in_group_b }));
+        CHECK_FALSE(fx.world.entity_is_valid(visited[0]));
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>())
+            == std::vector<zecs::Entity>{ visited[1] });
     }
 
-    SUBCASE("view_comp_group skips future component removed during traversal")
+    SUBCASE("view_comp_group skips a future entity that loses a component of another pool")
     {
+        // The pass goes over Velocity: it has fewer components than Position.
+        // The components of Position can be removed from any entity.
+        REQUIRE(fx.world.comp_pool_get<test::Velocity>()->size() < fx.world.comp_pool_get<test::Position>()->size());
+
         std::vector<zecs::Entity> visited;
-        bool removed_future = false;
+        zecs::Entity future = zecs::Entity_INVALID;
 
         for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
         {
             visited.push_back(entity);
 
-            if (!removed_future)
+            if (future == zecs::Entity_INVALID)
             {
-                CHECK(fx.world.comp_remove<test::Velocity>(fx.in_group_b));
-                removed_future = true;
+                future = (entity == fx.in_group_a) ? fx.in_group_b : fx.in_group_a;
+                CHECK(fx.world.comp_remove<test::Position>(future));
             }
         }
 
         REQUIRE(visited.size() == 1);
-        CHECK(visited[0] == fx.in_group_a);
-        CHECK(fx.world.comp_get<test::Velocity>(fx.in_group_b) == nullptr);
-        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()).size() == 1);
-        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>())[0] == fx.in_group_a);
+        CHECK(visited[0] != future);
+        CHECK(fx.world.comp_get<test::Position>(future) == nullptr);
+        CHECK(test::collect_entities(fx.world.view_comp_group<test::Position, test::Velocity>()) == visited);
     }
 
     SUBCASE("views rebuild membership correctly after remove re-add and entity replacement")
@@ -354,9 +343,9 @@ TEST_CASE("view_api")
 
     SUBCASE("view_comps does not visit components added to new entities during traversal")
     {
-        // EntityIt snapshots dense_size at construction, so components added to
-        // brand-new entities mid-pass (appended beyond the cached size) must not
-        // appear in the current traversal.
+        // A pass starts from the last slot and goes to the first one.
+        // A new component takes a slot at the end of the pool. The pass
+        // has left the end already, so it does not visit the new component.
         zecs::World world("add-during-comps");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();
@@ -378,16 +367,13 @@ TEST_CASE("view_api")
             }
         }
 
-        REQUIRE(visited.size() == 3);
-        CHECK(visited[0] == e1);
-        CHECK(visited[1] == e2);
-        CHECK(visited[2] == e3);
+        CHECK(test::sorted(visited) == test::sorted({ e1, e2, e3 }));
     }
 
-    SUBCASE("view_comps keeps its end when end() is called again after the pool grows")
+    SUBCASE("view_comps with end() called on every step does not visit new slots")
     {
         // A loop that calls end() on every step must stop at the same place as
-        // a range-for. New slots after the saved end are not visited.
+        // a range-for. New slots at the end of the pool are not visited.
         zecs::World world("grow-during-comps");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();
@@ -411,9 +397,7 @@ TEST_CASE("view_api")
             REQUIRE(visited.size() <= 2);
         }
 
-        REQUIRE(visited.size() == 2);
-        CHECK(visited[0] == e1);
-        CHECK(visited[1] == e2);
+        CHECK(test::sorted(visited) == test::sorted({ e1, e2 }));
         CHECK(test::collect_entities(view).size() == 3);
     }
 
@@ -421,31 +405,33 @@ TEST_CASE("view_api")
     {
         // The pool free list hands back a slot freed mid-pass; the reused slot is
         // a real (non-INVALID) dense entry, so the traversal picks up the new owner.
+        // Only a pool with stable pointers keeps a freed slot in its place.
+        // The pass goes from the last slot, so e1 is the one it has not reached.
         zecs::World world("reuse-during");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();
         const zecs::Entity e3 = world.entity_add();
-        REQUIRE(world.comp_add<test::Position>(e1, 1, 1) != nullptr);
-        REQUIRE(world.comp_add<test::Position>(e2, 2, 2) != nullptr);
-        REQUIRE(world.comp_add<test::Position>(e3, 3, 3) != nullptr);
+        REQUIRE(world.comp_add<StablePosition>(e1, 1, 1) != nullptr);
+        REQUIRE(world.comp_add<StablePosition>(e2, 2, 2) != nullptr);
+        REQUIRE(world.comp_add<StablePosition>(e3, 3, 3) != nullptr);
 
         std::vector<zecs::Entity> visited;
         zecs::Entity ne = zecs::Entity_INVALID;
         bool done = false;
-        for (zecs::Entity entity : world.view_comps<test::Position>())
+        for (zecs::Entity entity : world.view_comps<StablePosition>())
         {
             visited.push_back(entity);
             if (!done)
             {
                 done = true;
-                REQUIRE(world.comp_remove<test::Position>(e3));
+                REQUIRE(world.comp_remove<StablePosition>(e1));
                 ne = world.entity_add();
-                REQUIRE(world.comp_add<test::Position>(ne, 9, 9) != nullptr);
+                REQUIRE(world.comp_add<StablePosition>(ne, 9, 9) != nullptr);
             }
         }
 
         REQUIRE(visited.size() == 3);
-        CHECK(visited[0] == e1);
+        CHECK(visited[0] == e3);
         CHECK(visited[1] == e2);
         CHECK(visited[2] == ne);
     }
@@ -455,6 +441,7 @@ TEST_CASE("view_api")
         // Group membership is evaluated on demand for each lead entity, so a
         // component added mid-pass to an entity still ahead in the lead pool is
         // observed when the traversal reaches it.
+        // The pass goes from the last slot of Position: z, y, x.
         zecs::World world("group-add-during");
         const zecs::Entity x = world.entity_add();
         const zecs::Entity y = world.entity_add();
@@ -477,12 +464,12 @@ TEST_CASE("view_api")
             if (!added)
             {
                 added = true;
-                REQUIRE(world.comp_add<test::Velocity>(z, 33, 33) != nullptr);
+                REQUIRE(world.comp_add<test::Velocity>(x, 33, 33) != nullptr);
             }
         }
 
         REQUIRE(visited.size() == 2);
         CHECK(visited[0] == y);
-        CHECK(visited[1] == z);
+        CHECK(visited[1] == x);
     }
 }

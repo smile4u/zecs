@@ -2,6 +2,7 @@
 
 #include "zecs/world.h"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -95,6 +96,14 @@ std::vector<zecs::Entity> collect_entities(View&& view)
     for (zecs::Entity entity : view)
         entities.push_back(entity);
 
+    return entities;
+}
+
+// The same entities in a fixed order. Use it when a test checks which
+// entities a pass visits: the order of a pass is not a part of the API.
+inline std::vector<zecs::Entity> sorted(std::vector<zecs::Entity> entities)
+{
+    std::sort(entities.begin(), entities.end());
     return entities;
 }
 

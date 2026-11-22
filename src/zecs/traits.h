@@ -36,4 +36,15 @@ constexpr std::size_t comp_page_size_default() noexcept
         return std::min<std::size_t>(4096, std::bit_ceil(std::max<std::size_t>(1, 64 * 1024 / sizeof(T))));
 }
 
+// The default value of CompConfig::stable_pointers. It is
+// T::stable_pointers when the type has it. If not, it is false.
+template<typename T>
+constexpr bool comp_stable_pointers_default() noexcept
+{
+    if constexpr (requires { T::stable_pointers; })
+        return T::stable_pointers;
+    else
+        return false;
+}
+
 } // namespace zecs

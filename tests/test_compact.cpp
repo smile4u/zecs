@@ -20,6 +20,8 @@ struct MoveOnly
 // Can not be moved at all.
 struct Pinned
 {
+    static constexpr bool stable_pointers = true;
+
     explicit Pinned(int value_) : value(value_) {}
     Pinned(Pinned&&) = delete;
 

@@ -11,7 +11,7 @@ void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept
         return;
 
     size_t lead = 0;
-    size_t lead_size = pools[0]->dense_size();
+    DIndex lead_last = pools[0]->dense_last();
     for (size_t i = 1; i < count; ++i)
     {
         if (pools[i] == nullptr)
@@ -20,11 +20,11 @@ void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept
             break;
         }
 
-        const size_t size = pools[i]->dense_size();
-        if (size < lead_size)
+        const DIndex last = pools[i]->dense_last();
+        if (last < lead_last)
         {
             lead = i;
-            lead_size = size;
+            lead_last = last;
         }
     }
 

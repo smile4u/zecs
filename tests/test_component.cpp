@@ -47,13 +47,41 @@ struct ForeignPage
 {
     int value = 0;
 };
+
+// Components that ask for pointers that stay valid.
+struct OwnStable
+{
+    static constexpr bool stable_pointers = true;
+
+    int value = 0;
+};
+
+struct ForeignStable
+{
+    int value = 0;
+};
 } // namespace
+
+template<>
+struct zecs::CompConfig<ForeignStable> : zecs::CompConfigDefault<ForeignStable>
+{
+    static constexpr bool stable_pointers = true;
+};
 
 template<>
 struct zecs::CompConfig<ForeignPage> : zecs::CompConfigDefault<ForeignPage>
 {
     static constexpr size_t page_size = 16;
 };
+
+// Pointers are not stable by default. A type sets it in itself
+// or in a specialization, and the other settings keep their defaults.
+static_assert(!zecs::CompConfig<test::Position>::stable_pointers);
+static_assert(!zecs::CompConfig<test::Tag>::stable_pointers);
+static_assert(zecs::CompConfig<OwnStable>::stable_pointers);
+static_assert(zecs::CompConfig<ForeignStable>::stable_pointers);
+static_assert(zecs::CompConfig<ForeignStable>::page_size == 4096);
+static_assert(!zecs::CompConfig<ForeignPage>::stable_pointers);
 
 // Covers typed and runtime component operations on a populated world:
 // add/get/get_or_add/remove, singleton helpers, pool lifecycle and destruction behavior.
@@ -190,7 +218,9 @@ TEST_CASE("component_api")
                 REQUIRE(world.comp_add<EmptyWithDtor>(second) != nullptr);
                 REQUIRE(world.comp_add<EmptyWithDtor>(third) != nullptr);
 
-                CHECK(world.comp_remove<EmptyWithDtor>(first));
+                // The last component is removed every time, so no component
+                // moves and no other object is destroyed.
+                CHECK(world.comp_remove<EmptyWithDtor>(third));
                 CHECK(EmptyWithDtor::gone == 1);
 
                 world.entity_remove(second);
@@ -252,9 +282,7 @@ TEST_CASE("component_api")
             CHECK(fx.world.comp_get(fx.get_or_add_entity, tag_guid) == added);
 
             const auto entities = test::collect_entities(fx.world.view_comps(tag_guid));
-            REQUIRE(entities.size() == 2);
-            CHECK(entities[0] == fx.tag_entity);
-            CHECK(entities[1] == fx.get_or_add_entity);
+            CHECK(test::sorted(entities) == test::sorted({ fx.tag_entity, fx.get_or_add_entity }));
 
             CHECK(fx.world.comp_remove(fx.get_or_add_entity, tag_guid));
             CHECK(fx.world.comp_get(fx.get_or_add_entity, tag_guid) == nullptr);
@@ -298,9 +326,11 @@ TEST_CASE("component_api")
             CHECK(test::TrackedLifetime::constructed == 2);
             CHECK(test::TrackedLifetime::destroyed == 0);
 
+            // The removal can move the other component into the free slot.
+            // A move makes one more object and destroys one more.
             CHECK(fx.world.comp_remove<test::TrackedLifetime>(fx.tracked_first));
             CHECK(test::TrackedLifetime::alive == 1);
-            CHECK(test::TrackedLifetime::destroyed == 1);
+            CHECK(test::TrackedLifetime::destroyed == test::TrackedLifetime::constructed - 1);
         }
 
         SUBCASE("component pools are created lazily and persist after last component removal")
@@ -346,6 +376,6 @@ TEST_CASE("component_api")
     }
 
     CHECK(test::TrackedLifetime::alive == 0);
-    CHECK(test::TrackedLifetime::constructed == 2);
-    CHECK(test::TrackedLifetime::destroyed == 2);
+    CHECK(test::TrackedLifetime::constructed >= 2);
+    CHECK(test::TrackedLifetime::destroyed == test::TrackedLifetime::constructed);
 }

@@ -55,9 +55,10 @@ constexpr Entity Entity_INVALID = static_cast<Entity>(EntityBase_INVALID);
 // An entity ID has two parts: the index in the low bits and the generation
 // in the high bits. A removed index is used again with the next generation,
 // so the old ID and the new ID are different.
-// Limits: the generation starts again from 0 after its last value, so a very
-// old ID can be equal to a live one. No more than Entity_INDEX_MASK entities
-// can live at the same time (checked by assert only).
+// An index that used its last generation is never used again, so an old ID
+// is never equal to a live one.
+// Limits: no more than Entity_INDEX_MASK entities can live at the same time.
+// Each index that is never used again makes this number smaller by one.
 constexpr uint32_t Entity_INDEX_BITS = 20;
 constexpr EntityBase Entity_INDEX_MASK = (EntityBase(1) << Entity_INDEX_BITS) - 1;
 constexpr EntityBase Entity_GEN_MASK = ~Entity_INDEX_MASK;

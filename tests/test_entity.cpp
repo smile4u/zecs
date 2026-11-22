@@ -120,7 +120,10 @@ TEST_CASE("entity_reuse")
 
     SUBCASE("indices do not grow when entities are added and removed in turn")
     {
-        for (int i = 0; i < 10000; ++i)
+        // An index has this number of generations. After the last one
+        // a new entity takes another index: there is a test for it below.
+        const int generations = 1 << (32 - zecs::Entity_INDEX_BITS);
+        for (int i = 0; i < generations; ++i)
         {
             const zecs::Entity e = world.entity_add();
             world.comp_add<test::Position>(e);
@@ -180,21 +183,67 @@ TEST_CASE("entity_reuse")
         CHECK(world.comp_get<test::Position>(new_entity)->x == 9);
     }
 
-    SUBCASE("generation starts again from the first one when it runs out")
+    SUBCASE("an index that used its last generation is never used again")
     {
         const zecs::Entity first = world.entity_add();
-        zecs::Entity e = first;
+        const zecs::EntityBase index = zecs::entity_to_index(first);
+        world.comp_add<test::Position>(first);
 
+        // Every generation of the index is used one time.
         const int generations = 1 << (32 - zecs::Entity_INDEX_BITS);
-        for (int i = 0; i < generations; ++i)
+        zecs::Entity e = first;
+        for (int i = 1; i < generations; ++i)
         {
-            world.entity_remove(e);
+            REQUIRE(world.entity_remove(e));
             e = world.entity_add();
-            CHECK(e != zecs::Entity_INVALID);
-            CHECK(world.entity_is_valid(e));
+            REQUIRE(zecs::entity_to_index(e) == index);
+            REQUIRE(e != first);
         }
 
-        CHECK(e == first);
+        // `e` has the last generation. A new entity takes another index.
+        world.comp_add<test::Position>(e);
+        CHECK(world.entity_remove(e));
+
+        const zecs::Entity next = world.entity_add();
+        CHECK(world.entity_is_valid(next));
+        CHECK(zecs::entity_to_index(next) != index);
+
+        // The old IDs of the index stay not valid.
+        CHECK_FALSE(world.entity_is_valid(first));
+        CHECK_FALSE(world.entity_is_valid(e));
+        CHECK_FALSE(world.entity_remove(e));
+        CHECK(world.comp_get<test::Position>(first) == nullptr);
+        CHECK(world.comp_get<test::Position>(e) == nullptr);
+
+        // A pass over the entities skips the slot of this index.
+        const auto entities = test::collect_entities(world.view_entities());
+        REQUIRE(entities.size() == 2);
+        CHECK(entities[0] == world.root());
+        CHECK(entities[1] == next);
+        CHECK(world.counters_get().entities == 2);
+    }
+
+    SUBCASE("entity_add returns Entity_INVALID when no index is left")
+    {
+        // The root has one index already.
+        const size_t limit = zecs::Entity_INDEX_MASK;
+        zecs::Entity last = zecs::Entity_INVALID;
+        for (size_t i = 1; i < limit; ++i)
+        {
+            last = world.entity_add();
+            REQUIRE(last != zecs::Entity_INVALID);
+        }
+
+        CHECK(world.counters_get().entities == limit);
+        CHECK(world.entity_add() == zecs::Entity_INVALID);
+        CHECK(world.entity_add() == zecs::Entity_INVALID);
+        CHECK(world.counters_get().entities == limit);
+
+        // A removed entity gives its index to a new one.
+        CHECK(world.entity_remove(last));
+        const zecs::Entity again = world.entity_add();
+        CHECK(world.entity_is_valid(again));
+        CHECK(zecs::entity_to_index(again) == zecs::entity_to_index(last));
     }
 
     SUBCASE("view_entities skips removed entities and gives reused ones")

@@ -46,6 +46,8 @@ struct ZECS_EXPORT World
 
     Entity root();
 
+    // Returns Entity_INVALID when no index is left for a new entity:
+    // see the limits of an entity ID in types.h.
     Entity entity_add();
 
     // False for the root and for an entity that isn't valid.

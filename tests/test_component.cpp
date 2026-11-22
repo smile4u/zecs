@@ -42,7 +42,7 @@ struct OwnPage
     char pad[156] = {};
 };
 
-// A type that we can not change. Its page size is set by a specialization.
+// A type that we can't change. Its page size is set by a specialization.
 struct ForeignPage
 {
     int value = 0;
@@ -74,7 +74,7 @@ struct zecs::CompConfig<ForeignPage> : zecs::CompConfigDefault<ForeignPage>
     static constexpr size_t page_size = 16;
 };
 
-// Pointers are not stable by default. A type sets it in itself
+// Pointers aren't stable by default. A type sets it in itself
 // or in a specialization, and the other settings keep their defaults.
 static_assert(!zecs::CompConfig<test::Position>::stable_pointers);
 static_assert(!zecs::CompConfig<test::Tag>::stable_pointers);
@@ -176,7 +176,7 @@ TEST_CASE("component_api")
             fx.world.comp_patch(e, zecs::globalUid<test::Position>);
             CHECK(fx.world.tick_get() == before);
 
-            // NonDefault can not be made without arguments.
+            // NonDefault can't be made without arguments.
             CHECK(fx.world.comp_add<test::NonDefault>(e) == nullptr);
             CHECK(fx.world.comp_add(e, zecs::globalUid<test::NonDefault>) == nullptr);
             CHECK(fx.world.tick_get() == before);
@@ -336,7 +336,7 @@ TEST_CASE("component_api")
         SUBCASE("component pools are created lazily and persist after last component removal")
         {
             // This block documents the pool lifecycle that zecs exposes through
-            // `comp_pool_get()` and `view_pools()`: pools do not exist before the
+            // `comp_pool_get()` and `view_pools()`: pools don't exist before the
             // first add, but once created they remain registered even if all
             // components of that type are removed later.
             zecs::World world("pool-lifecycle");

@@ -297,7 +297,7 @@ TEST_CASE("packed pool")
     {
         // The patched view goes by the patch list, not by the slots. So it
         // keeps the strict rule: no entity is skipped or visited two times,
-        // also when the body removes a component that is not visited yet.
+        // also when the body removes a component that isn't visited yet.
         const auto entities = fill<Packed>(world, 40);
         const zecs::TickContext ctx(world.tick_get());
         for (zecs::Entity e : entities)
@@ -311,7 +311,7 @@ TEST_CASE("packed pool")
             visited.push_back(e);
 
             // The view goes from the last patched entity to the first one,
-            // so the entities from the start of the list are not visited yet.
+            // so the entities from the start of the list aren't visited yet.
             for (int k = 0; k < 2 && next_target < entities.size(); ++k, ++next_target)
             {
                 const zecs::Entity target = entities[next_target];

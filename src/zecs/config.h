@@ -19,7 +19,7 @@ namespace zecs
 //          ...
 //      };
 //
-// 2. A specialization of CompConfig, for a type that you can not change.
+// 2. A specialization of CompConfig, for a type that you can't change.
 //    CompConfigDefault gives the default values of the other settings:
 //      template<>
 //      struct zecs::CompConfig<Particle> : zecs::CompConfigDefault<Particle>
@@ -30,7 +30,7 @@ namespace zecs
 //    Every file that uses the component must see it. If one file does
 //    not see it, that file gets another page size, and the pool breaks.
 //
-// Some behavior is not a setting. It comes from the type itself:
+// Some behavior isn't a setting. It comes from the type itself:
 //   - a tag (see is_tag_component in traits.h) takes no memory in a pool;
 //   - compact() moves only the components that have a move or copy constructor;
 //   - a component is added without arguments only with a default constructor.
@@ -39,7 +39,7 @@ struct CompConfigDefault
 {
     // Number of components in one page of a pool. It must be a power of two.
     // Default: about 64 KB of memory, but not more than 4096 components.
-    // The size in bytes is limited so that a pool of big components does not
+    // The size in bytes is limited so that a pool of big components doesn't
     // take a lot of memory for its first component. The number is rounded up
     // to a power of two: with pages smaller than 64 KB adding components
     // was measurably slower.
@@ -55,15 +55,15 @@ struct CompConfigDefault
     //     already. If the body removes it from another entity, the loop
     //     can visit some entity two times. To remove such components,
     //     put the entities in a list and remove them after the loop.
-    //     A group view goes over one of its pools, and we do not know
+    //     A group view goes over one of its pools, and we don't know
     //     which one. So follow this rule for every type of the view.
-    //     A view of patched components does not have this limit.
+    //     A view of patched components doesn't have this limit.
     //
-    // True: components do not move. A pointer to a component is valid until
+    // True: components don't move. A pointer to a component is valid until
     // this component is removed or compact() is called. A loop body can
     // remove any component. The cost: a removed component leaves an empty
     // slot. Empty slots stay until compact(), and every pass visits them.
-    // A type that can not be moved must set it to true.
+    // A type that can't be moved must set it to true.
     static constexpr bool stable_pointers = comp_stable_pointers_default<T>();
 };
 

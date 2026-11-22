@@ -39,7 +39,7 @@ struct CompPool2Base
     // So the loop body can remove the current component, and the pass skips
     // no entity. A pass from the start would skip the moved component.
     // A component added during the pass may be visited or not: with
-    // stable pointers it can take an empty slot that the pass did not reach.
+    // stable pointers it can take an empty slot that the pass didn't reach.
     struct EntityIt
     {
         // The end iterator. Slot 0 is never used for a component, so it is the end.
@@ -68,10 +68,10 @@ struct CompPool2Base
 
         inline void next_matched() noexcept
         {
-            // The entity is checked first: most slots are not empty, and then
+            // The entity is checked first: most slots aren't empty, and then
             // this is the only check. Slot 0 is always empty, so it stops
             // the loop. A slot that the loop body made empty has no entity
-            // too (see dense_rem), so the pool size is not checked here.
+            // too (see dense_rem), so the pool size isn't checked here.
             entity = dense->operator[](index);
             while (entity == Entity_INVALID && index != DIndex_NONE)
             {
@@ -84,7 +84,7 @@ struct CompPool2Base
         // of a group view with many pools is about 20% slower.
         size_t index = DIndex_NONE;
         const Dense* dense = nullptr;
-        // The entity of the current slot. operator* returns it and does not
+        // The entity of the current slot. operator* returns it and doesn't
         // read the slot again. Measured: view loops are up to 10% faster.
         Entity entity = Entity_INVALID;
     };
@@ -97,7 +97,7 @@ struct CompPool2Base
     // as before, it has the same component in the same place of the list.
     // An empty slot has GTick_INVALID. No component has this tick.
     // A component that is added or patched inside the loop moves to the head
-    // of the list, so this pass does not visit it; the next pass does.
+    // of the list, so this pass doesn't visit it; the next pass does.
     struct PatchIt
     {
         inline PatchIt() noexcept = default;
@@ -116,7 +116,7 @@ struct CompPool2Base
         inline PatchIt& operator++() noexcept
         {
             // The next node was saved before the loop body. If its slot still
-            // has the same tick, the body did not remove, patch or move it.
+            // has the same tick, the body didn't remove, patch or move it.
             DIndex n = next;
             GTick t = next_tick;
             if (pool->ticks[n] != t) [[unlikely]]
@@ -129,7 +129,7 @@ struct CompPool2Base
                 }
                 else if (pool->ticks[head] == cur_tick)
                 {
-                    // The current node did not change, so its link is correct.
+                    // The current node didn't change, so its link is correct.
                     n = pool->patches[head].next;
                 }
                 else
@@ -160,7 +160,7 @@ struct CompPool2Base
                 cur_tick = t;
 
             // Save the next node now. The loop body can patch, move or
-            // remove the current node, and then its link is not correct.
+            // remove the current node, and then its link isn't correct.
             head = n;
             next = pool->patches[n].next;
             next_tick = pool->ticks[next];
@@ -201,9 +201,9 @@ struct CompPool2Base
     constexpr DIndex dense_last() const noexcept;
 
     // Moves components from the end into the empty slots and frees the memory.
-    // Pointers to moved components are not valid after it, and the order
-    // of entities in a pass changes. Do not call it inside a view loop.
-    // Components that can not be moved stay in their slots.
+    // Pointers to moved components aren't valid after it, and the order
+    // of entities in a pass changes. Don't call it inside a view loop.
+    // Components that can't be moved stay in their slots.
     ZECS_EXPORT void compact() noexcept;
 
     inline EntityIt entities_begin() const noexcept { return EntityIt(&dense, dense_last()); }
@@ -220,10 +220,10 @@ struct CompPool2Base
     // on_added is called after the component is made.
     // on_removed is called before the component is destroyed.
     // Contract for the handlers. It is checked by assert.
-    //   - A handler does not add or remove components of this pool.
+    //   - A handler must not add or remove components of this pool.
     //     It can change components of other types: for example,
     //     on_removed can remove the other components of the entity.
-    //   - A handler does not connect or disconnect handlers of this pool.
+    //   - A handler must not connect or disconnect handlers of this pool.
     CompPool2Signal on_added;
     CompPool2Signal on_removed;
     CompPool2Signal on_patched;
@@ -259,8 +259,8 @@ protected:
     // another slot, move its component into `di` after that.
     virtual void comp_slot_rem(DIndex di, DIndex from) noexcept = 0;
 
-    // For compact(): move one component (false if the type can not be moved)
-    // and free the pages that `size` slots do not need.
+    // For compact(): move one component (false if the type can't be moved)
+    // and free the pages that `size` slots don't need.
     virtual bool comp_slot_move(DIndex from, DIndex to) noexcept = 0;
     virtual void comp_slots_trim(DIndex size) noexcept = 0;
 
@@ -322,7 +322,7 @@ inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
 
     dense_patch(di, (*tick)++);
 
-    // The loop over listeners is not inline, so patch() stays small
+    // The loop over listeners isn't inline, so patch() stays small
     // and the compiler puts it inside loops.
     if (!on_patched.Empty())
         patched_emit(e);

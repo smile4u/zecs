@@ -20,7 +20,7 @@ ZECS_EXPORT void move_leading_pool_front(CompPool2Base** pools, size_t count) no
 // N pools and the checks of an entity in all of them at once.
 // It knows only the number of the component types, not the types:
 // a group view moves its lead pool to the first place when it is made,
-// so a place here can not belong to a type.
+// so a place here can't belong to a type.
 template<size_t N>
 struct QueryScopeBase
 {
@@ -31,7 +31,7 @@ protected:
     template<typename... T>
     friend struct ViewCompGroup2;
 
-    // The checks do not test for nullptr. World::query_scope() makes
+    // The checks don't test for nullptr. World::query_scope() makes
     // the pools that are missing. A view tests its pools itself.
     inline QueryScopeBase(const Pools& pools_) noexcept
         : pools(pools_)
@@ -46,7 +46,7 @@ protected:
     }
 
     // The pools are checked in their order, with a stop at the first "no".
-    // `Offset` is the number of the first pools to skip: a view does not
+    // `Offset` is the number of the first pools to skip: a view doesn't
     // check its lead pool, the entity comes from it.
     template<size_t Offset = 0>
     inline bool has_all(Entity e) const noexcept

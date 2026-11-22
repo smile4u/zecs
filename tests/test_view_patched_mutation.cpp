@@ -127,7 +127,7 @@ TEST_CASE("patch view: removing current and successor during iteration")
 // The freed slot is immediately reused by a new component: the iterator must
 // stay memory-safe and keep walking live nodes. The recycled node re-enters the
 // patch list at the head — ahead of the in-flight iterator — so this traversal
-// does not visit it, but a fresh view must.
+// doesn't visit it, but a fresh view must.
 TEST_CASE("patch view: slot reuse during iteration")
 {
     MutationFixture fx;

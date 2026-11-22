@@ -48,9 +48,9 @@ struct ZECS_EXPORT World
 
     Entity entity_add();
 
-    // False for the root and for an entity that is not valid.
+    // False for the root and for an entity that isn't valid.
     // The entity is still valid in the handlers of on_removed that run here.
-    // Contract: such a handler does not remove this entity again and does
+    // Contract: such a handler must not remove this entity again and must
     // not add components to it. It is checked by assert.
     bool entity_remove(Entity e);
 
@@ -59,7 +59,7 @@ struct ZECS_EXPORT World
     // ------------------------------------------
     // Component API
     // ------------------------------------------
-    // Contract: comp_add needs an entity that does not have this component yet.
+    // Contract: comp_add needs an entity that doesn't have this component yet.
     // It is checked by assert. Use comp_get_or_add when it may be there.
     // A pointer to a component is valid until a component of the same type
     // is removed. To keep pointers valid longer, see stable_pointers
@@ -103,8 +103,8 @@ struct ZECS_EXPORT World
     void comp_patch(Entity e, GUid guid);
 
     // The signals of a component type. See the contract of their handlers
-    // in comp_pool_base.h: a handler does not add or remove components
-    // of this type and does not connect or disconnect its handlers.
+    // in comp_pool_base.h: a handler must not add or remove components
+    // of this type and must not connect or disconnect its handlers.
     template<typename T>
     CompPool2Signal& comp_on_added();
 
@@ -181,7 +181,7 @@ struct ZECS_EXPORT World
     // ------------------------------------------
     // Fast checks for several component types in a loop.
     // Make a scope one time before the loop: it finds the pools (and makes
-    // the missing ones), so the calls with it do not search for them again.
+    // the missing ones), so the calls with it don't search for them again.
     // Contract: a scope is used only with the world that made it.
     // It is checked by assert.
 
@@ -190,7 +190,7 @@ struct ZECS_EXPORT World
 
     // True when the entity has every component of the scope.
     // The types are checked in their order, with a stop at the first one
-    // that the entity does not have. So put the rarest component first.
+    // that the entity doesn't have. So put the rarest component first.
     template<size_t N>
     bool query_has_all(Entity e, const QueryScopeBase<N>& scope) const noexcept;
 
@@ -203,12 +203,12 @@ struct ZECS_EXPORT World
     // component of the scope. The components come by reference, in the order
     // of the types of the scope: there is no need to get them in the body.
     //   world.query_for_each(scope, [](Entity e, Position& p, Velocity& v) { ... });
-    // The order of the entities is not fixed, and it is not the order of a view.
+    // The order of the entities isn't fixed, and it isn't the order of a view.
     // The body can add components and entities, and can remove the
     // components of the current entity. Before you remove components of
     // other entities in the body, read about stable_pointers in config.h.
     // A component that the body adds can be visited in the same pass or not.
-    // Do not call compact() in the body.
+    // Don't call compact() in the body.
     template<typename... T, typename F>
     void query_for_each(const QueryScope<T...>& scope, F&& body);
 
@@ -220,8 +220,8 @@ struct ZECS_EXPORT World
     // stable pointers it also fills the empty slots, so loops over
     // their views get faster.
     // Call it after many components were removed, like at the end of a level.
-    // Pointers to components are not valid after it, and the order of
-    // entities in views changes. Do not call it inside a view loop.
+    // Pointers to components aren't valid after it, and the order of
+    // entities in views changes. Don't call it inside a view loop.
     void compact();
 
     Counters counters_get() const;
@@ -285,7 +285,7 @@ inline Entity World::root()
 
 inline bool World::entity_is_valid(Entity e)
 {
-    // A removed slot never keeps its own index, so it is not equal to any ID.
+    // A removed slot never keeps its own index, so it isn't equal to any ID.
     // Entity_INVALID has an index that is never in use.
     size_t eindex = entity_to_index(e);
     return (eindex < entities.size()) && (entities[eindex] == e);
@@ -587,8 +587,8 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
 // The pools come by reference on purpose. The loop reads the arrays
 // of the pools on every step, because the body can add components and
 // the arrays can move. With references the compiler can take these reads
-// out of the loop when the body does not change the pools. With the
-// pointers from the scope it can not.
+// out of the loop when the body doesn't change the pools. With the
+// pointers from the scope it can't.
 template<typename F, typename... T, size_t... I>
 inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const CompPool2Base& lead, CompPool2<T>&... pool)
 {

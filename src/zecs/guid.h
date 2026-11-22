@@ -11,7 +11,7 @@ namespace zecs
 enum class GUid : uint32_t; // unique component type identifier
 
 // The value comes from the type name as the compiler prints it. It can differ
-// between compilers and their versions: do not save it to files or send it.
+// between compilers and their versions: don't save it to files or send it.
 template<typename T>
 constexpr GUid globalUid = static_cast<GUid>(func_CRC32<T>());
 constexpr GUid GUid_INVALID = static_cast<GUid>(0);
@@ -19,7 +19,7 @@ constexpr GUid GUid_INVALID = static_cast<GUid>(0);
 template<typename... T>
 using GUidGroup = std::array<zecs::GUid, sizeof...(T)>;
 
-// Enum, not uint32_t: a write to an int field cannot change an enum value,
+// Enum, not uint32_t: a write to an int field can't change an enum value,
 // so the compiler can find the pool once before a loop.
 enum class CUidIndex : uint32_t;
 enum class EUidIndex : uint32_t;

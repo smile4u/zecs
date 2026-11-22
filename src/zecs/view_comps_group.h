@@ -52,7 +52,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         InternalIt it;
         struct NoView {};
 
-        // A group of one pool does not use the view, so this field is empty.
+        // A group of one pool doesn't use the view, so this field is empty.
         // With the attribute an empty field takes no space. Without it
         // the iterator is 8 bytes bigger than the pool iterator.
         ZECS_NO_UNIQUE_ADDRESS std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup2*> view{};
@@ -91,7 +91,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         return It(lead->entities_begin(), this);
     }
 
-    // The end is slot 0, so it does not move when the pool grows.
+    // The end is slot 0, so it doesn't move when the pool grows.
     inline It end() const noexcept { return It(); }
 
     inline bool has(Entity e) const noexcept

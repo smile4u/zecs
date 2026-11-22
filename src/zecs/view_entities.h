@@ -9,7 +9,7 @@ namespace zecs
 using Entities = std::vector<Entity>;
 
 // Goes by index, not by vector iterators: entities can be added during the pass.
-// The end is saved when the pass starts, so new slots are not visited.
+// The end is saved when the pass starts, so new slots aren't visited.
 // A new entity that takes a removed slot ahead is visited.
 struct ViewEntitiesIter
 {

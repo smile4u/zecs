@@ -171,7 +171,7 @@ void check_iteration_bound(GroupFixture& fx, MakeView make_view)
             visit(*it);
     }
 
-    // The components added by the callback are not visited in the same pass.
+    // The components added by the callback aren't visited in the same pass.
     CHECK(test::sorted(visited) == test::sorted({fx.first, fx.second}));
     std::vector<zecs::Entity> expected_next_pass = {fx.first, fx.second};
     expected_next_pass.insert(expected_next_pass.end(), added.begin(), added.end());

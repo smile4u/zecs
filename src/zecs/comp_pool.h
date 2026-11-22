@@ -87,7 +87,7 @@ struct CompPool2 : public CompPool2Base
                 comp = ::new (comp_slot_ensure(di)) T(std::forward<Args>(args)...);
             }
 
-            // The handlers do not add or remove components of this pool,
+            // The handlers must not add or remove components of this pool,
             // so the pointer is still correct after them.
             signal_emit(on_added, e);
             return comp;

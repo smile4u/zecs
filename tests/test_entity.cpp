@@ -166,7 +166,7 @@ TEST_CASE("entity_reuse")
         CHECK_FALSE(world.query_has_all(old_entity, scope));
         CHECK_FALSE(world.query_has_any(old_entity, scope));
 
-        // A remove with the old ID does not remove the new entity.
+        // A remove with the old ID doesn't remove the new entity.
         CHECK_FALSE(world.entity_remove(old_entity));
         CHECK(world.entity_is_valid(new_entity));
         CHECK(world.query_has_all(new_entity, scope));
@@ -234,7 +234,7 @@ TEST_CASE("entity_reuse")
                 world.entity_add();
         }
 
-        // Entities added during the loop are not visited.
+        // Entities added during the loop aren't visited.
         CHECK(visited == 4);
     }
 }

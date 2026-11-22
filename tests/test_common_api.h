@@ -100,7 +100,7 @@ std::vector<zecs::Entity> collect_entities(View&& view)
 }
 
 // The same entities in a fixed order. Use it when a test checks which
-// entities a pass visits: the order of a pass is not a part of the API.
+// entities a pass visits: the order of a pass isn't a part of the API.
 inline std::vector<zecs::Entity> sorted(std::vector<zecs::Entity> entities)
 {
     std::sort(entities.begin(), entities.end());

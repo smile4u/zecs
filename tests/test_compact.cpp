@@ -17,7 +17,7 @@ struct MoveOnly
     std::unique_ptr<int> number;
 };
 
-// Can not be moved at all.
+// Can't be moved at all.
 struct Pinned
 {
     static constexpr bool stable_pointers = true;
@@ -280,7 +280,7 @@ TEST_CASE("compact")
         const zecs::CompPool2Base& pinned = *fx.world.comp_pool_get_or_add<Pinned>();
         const size_t full_size = PoolProbe::sparse_size(pool);
 
-        // Pinned can not be moved, but its sparse[] is cut too.
+        // Pinned can't be moved, but its sparse[] is cut too.
         fx.world.comp_add<Pinned>(fx.entities[5], 5);
         fx.world.comp_add<Pinned>(fx.entities.back(), 7);
         fx.world.comp_remove<Pinned>(fx.entities.back());

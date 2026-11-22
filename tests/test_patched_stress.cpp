@@ -131,7 +131,7 @@ TEST_CASE("patched_stress")
 
     // Phase 1: build a large initial population with a non-trivial Position layout.
     // Some entities are patched here on purpose to prove that pre-snapshot changes
-    // are not returned later by the patched view.
+    // aren't returned later by the patched view.
     for (std::size_t entity_index = 0; entity_index < initial_entity_count; ++entity_index)
     {
         add_entity(entity_index);

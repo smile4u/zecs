@@ -65,7 +65,7 @@ bool World::entity_remove(Entity e)
     size_t count = comp_pools_packed.size();
     for (size_t i = 0; i < count; ++i)
     {
-        // Most pools do not have this entity. The check
+        // Most pools don't have this entity. The check
         // is inline, so we don't pay for a call.
         if (!pools[i]->contains(e))
             continue;

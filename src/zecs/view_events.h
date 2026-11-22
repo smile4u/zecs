@@ -5,7 +5,7 @@
 
 namespace zecs
 {
-// DRAFT: events are not finished and not reviewed yet. See known_issues.md.
+// DRAFT: events aren't finished and not reviewed yet. See known_issues.md.
 template<typename T>
 struct ViewEventsIter
 {

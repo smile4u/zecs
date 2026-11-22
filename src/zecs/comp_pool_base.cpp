@@ -88,7 +88,7 @@ bool CompPool2Base::remove(Entity e) noexcept
     if (di == DIndex_NONE)
         return false;
 
-    // The handlers do not add or remove components of this pool,
+    // The handlers must not add or remove components of this pool,
     // so `di` is still correct after them.
     signal_emit(on_removed, e);
 
@@ -115,7 +115,7 @@ void CompPool2Base::dense_rem(DIndex di, DIndex empty) noexcept
 
     // An empty slot has no entity and no tick. EntityIt skips a slot
     // without an entity. PatchIt sees by the tick that its node left
-    // the slot. `dense` does not get shorter: a pass that is running
+    // the slot. `dense` doesn't get shorter: a pass that is running
     // can still read the slot, so it needs no check of the size.
     dense[empty] = Entity_INVALID;
     ticks[empty] = GTick_INVALID;
@@ -167,12 +167,12 @@ void CompPool2Base::dense_move(DIndex from, DIndex to) noexcept
 
 void CompPool2Base::compact() noexcept
 {
-    // No empty slots: nothing to do, and the arrays are not copied.
+    // No empty slots: nothing to do, and the arrays aren't copied.
     if (dense.size() == dense_count + DIndex_FIRST)
         return;
 
     // Cut the empty end of sparse[]. It is done before the moves,
-    // so a pool that can not move its components gets it too.
+    // so a pool that can't move its components gets it too.
     // TODO: empty cells in the middle stay. To free them sparse[] must be
     // made of pages. That adds one memory read to every search: measure first.
     while (sparse_size > 0 && sparse[sparse_size - 1] == DIndex_NONE) --sparse_size;

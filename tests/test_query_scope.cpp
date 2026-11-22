@@ -296,7 +296,7 @@ TEST_CASE("query for_each")
             CHECK(v.dx == p.x * 10);
         });
 
-        // The components added by the body are not visited in the same pass.
+        // The components added by the body aren't visited in the same pass.
         CHECK(count == 10);
     }
 

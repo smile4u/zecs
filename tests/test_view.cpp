@@ -152,7 +152,7 @@ TEST_CASE("view_api")
     SUBCASE("view_comps can remove an entity that the pass visited already")
     {
         // Position has no stable pointers. So the body must not remove
-        // the component of an entity that the pass did not visit yet
+        // the component of an entity that the pass didn't visit yet
         // (see stable_pointers in config.h). It can remove the component
         // of an entity that the pass visited already.
         std::vector<zecs::Entity> visited;
@@ -263,7 +263,7 @@ TEST_CASE("view_api")
     {
         // The pass goes over Velocity, and it has no stable pointers. So the
         // body must not remove the Velocity of an entity that the pass
-        // did not visit yet. It can remove it from a visited entity.
+        // didn't visit yet. It can remove it from a visited entity.
         std::vector<zecs::Entity> visited;
 
         for (zecs::Entity entity : fx.world.view_comp_group<test::Position, test::Velocity>())
@@ -309,7 +309,7 @@ TEST_CASE("view_api")
     SUBCASE("views rebuild membership correctly after remove re-add and entity replacement")
     {
         // This is the closest zecs analogue to entt's clean view/group tests.
-        // The intent is to ensure that intersection membership is not cached
+        // The intent is to ensure that intersection membership isn't cached
         // incorrectly across remove, re-add and full entity replacement.
         zecs::World world("clean-membership");
         const zecs::Entity original = world.entity_add();
@@ -345,7 +345,7 @@ TEST_CASE("view_api")
     {
         // A pass starts from the last slot and goes to the first one.
         // A new component takes a slot at the end of the pool. The pass
-        // has left the end already, so it does not visit the new component.
+        // has left the end already, so it doesn't visit the new component.
         zecs::World world("add-during-comps");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();
@@ -373,7 +373,7 @@ TEST_CASE("view_api")
     SUBCASE("view_comps with end() called on every step does not visit new slots")
     {
         // A loop that calls end() on every step must stop at the same place as
-        // a range-for. New slots at the end of the pool are not visited.
+        // a range-for. New slots at the end of the pool aren't visited.
         zecs::World world("grow-during-comps");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();
@@ -406,7 +406,7 @@ TEST_CASE("view_api")
         // The pool free list hands back a slot freed mid-pass; the reused slot is
         // a real (non-INVALID) dense entry, so the traversal picks up the new owner.
         // Only a pool with stable pointers keeps a freed slot in its place.
-        // The pass goes from the last slot, so e1 is the one it has not reached.
+        // The pass goes from the last slot, so e1 is the one it hasn't reached.
         zecs::World world("reuse-during");
         const zecs::Entity e1 = world.entity_add();
         const zecs::Entity e2 = world.entity_add();

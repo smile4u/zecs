@@ -68,7 +68,7 @@ bool should_add_initial_component(std::size_t entity_index, std::size_t componen
 {
     // Rule 1 spreads candidates with a cheap linear congruential pattern.
     // Rule 2 perturbs the distribution with an xor-based mix so neighboring
-    // entities do not keep selecting almost the same component slices.
+    // entities don't keep selecting almost the same component slices.
     // Rule 3 guarantees that each entity owns at least one deterministic
     // "personal" component tied to its index.
     return ((entity_index + component_index * 7) % 23 == 0)
@@ -79,7 +79,7 @@ bool should_add_initial_component(std::size_t entity_index, std::size_t componen
 bool should_add_late_component(std::size_t entity_index, std::size_t component_index)
 {
     // Late entities use a different family of coefficients so their population
-    // pattern does not mirror phase 1 and therefore exercises hole-heavy worlds
+    // pattern doesn't mirror phase 1 and therefore exercises hole-heavy worlds
     // with a second distinct layout of occupied component pools.
     return ((entity_index + component_index * 11) % 19 == 0)
         || (((entity_index * 29) + component_index * 31) % 89 == 0)
@@ -284,7 +284,7 @@ TEST_CASE("stress_churn")
 
     // Reconstruct the expected live entity order. Entities go in the order of their
     // index in the world entity storage. A new entity can take the index of a removed
-    // one, so this is not the order of creation.
+    // one, so this isn't the order of creation.
     std::vector<zecs::Entity> expected_live_entities;
     expected_live_entities.reserve(total_entity_count + 1);
     expected_live_entities.push_back(world.root());
@@ -309,7 +309,7 @@ TEST_CASE("stress_churn")
     // Final validation: for each of the 250 component types, collect the expected entity set
     // from the model and compare it with the runtime view exposed by the ECS world.
     // Component views are compared as sorted sets because dense-slot reuse under heavy churn
-    // does not guarantee a stable insertion-order traversal.
+    // doesn't guarantee a stable insertion-order traversal.
     for (std::size_t component_index = 0; component_index < component_type_count; ++component_index)
     {
         std::vector<zecs::Entity> expected_component_entities;

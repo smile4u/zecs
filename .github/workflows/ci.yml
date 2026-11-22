@@ -1,0 +1,61 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Debug builds on Linux and macOS run with the sanitizers.
+          - { name: "Linux gcc 14, Debug",        os: ubuntu-24.04,   cxx: g++-14,     type: Debug,   shared: OFF, flags: "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer" }
+          - { name: "Linux gcc 14, Release",      os: ubuntu-24.04,   cxx: g++-14,     type: Release, shared: OFF, flags: "" }
+          - { name: "Linux clang 18, Debug",      os: ubuntu-24.04,   cxx: clang++-18, type: Debug,   shared: OFF, flags: "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer" }
+          - { name: "Linux clang 18, Release",    os: ubuntu-24.04,   cxx: clang++-18, type: Release, shared: OFF, flags: "" }
+          - { name: "Linux gcc 14, shared",       os: ubuntu-24.04,   cxx: g++-14,     type: Release, shared: ON,  flags: "" }
+          - { name: "macOS clang, Debug",         os: macos-latest,   cxx: clang++,    type: Debug,   shared: OFF, flags: "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer" }
+          - { name: "macOS clang, Release",       os: macos-latest,   cxx: clang++,    type: Release, shared: OFF, flags: "" }
+          - { name: "Windows MSVC, Debug",        os: windows-latest, cxx: "",         type: Debug,   shared: OFF, flags: "" }
+          - { name: "Windows MSVC, Release",      os: windows-latest, cxx: "",         type: Release, shared: OFF, flags: "" }
+          - { name: "Windows MSVC, shared",       os: windows-latest, cxx: "",         type: Release, shared: ON,  flags: "" }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.type }}
+          -DBUILD_SHARED_LIBS=${{ matrix.shared }}
+          -DZECS_BUILD_TESTS=ON
+          ${{ matrix.cxx != '' && format('-DCMAKE_CXX_COMPILER={0}', matrix.cxx) || '' }}
+          "-DCMAKE_CXX_FLAGS=${{ matrix.flags }}"
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.type }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C ${{ matrix.type }} --output-on-failure
+
+  # Installs zecs and builds a small project that finds it with find_package().
+  package:
+    name: Install and find_package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zecs
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZECS_BUILD_TESTS=OFF
+          cmake --build build --parallel
+          cmake --install build --prefix "$PWD/install"
+
+      - name: Build and run a project that uses it
+        run: |
+          cmake -S cmake/package_test -B build_package -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$PWD/install"
+          cmake --build build_package --parallel
+          ./build_package/zecs_package_test

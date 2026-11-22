@@ -14,7 +14,7 @@ struct ViewPatchedComps
     ViewPatchedComps& operator=(const ViewPatchedComps&) = delete;
     ViewPatchedComps& operator=(ViewPatchedComps&&) = delete;
 
-    inline ViewPatchedComps(CompPoolBase* pool_, GTick since_) :  pool(pool_), since(since_) { }
+    inline ViewPatchedComps(CompPoolBase* pool_, GTick since_) : since(since_), pool(pool_) { }
     inline bool empty() const { return (pool) ? pool->patch_empty(since) : true; }
     inline It begin() { return (pool) ? pool->patches_begin(since) : It(); }
     inline It end() { return (pool) ? pool->patches_end() : It(); }

@@ -450,7 +450,7 @@ inline void World::comp_patch(Entity e)
 }
 
 template<CompT T>
-inline void World::comp_patch(Entity e, T* comp)
+inline void World::comp_patch(Entity e, T*)
 {
     auto* pool = comp_pool_get<T>();
     if (!pool) return;

@@ -29,11 +29,15 @@ private:
 
 struct ZECS_EXPORT TaskGraph
 {
-    static constexpr float FIXED_TIME_DEFAULT = 0.27f;
+    // Seconds between two runs of the fixed tasks: about 37 runs in a second.
+    static constexpr float FIXED_TIME_DEFAULT = 0.027f;
 
     TaskGraph(float _fixed_dt = FIXED_TIME_DEFAULT) : fixed_dt(_fixed_dt) { }
     ~TaskGraph();
 
+    // Finds the tasks by the IDs in the lists below and runs the init tasks.
+    // The graph can be used again after shutdown(): init() reads the lists
+    // again, and every task starts from the beginning.
     void init(World& world);
     void step(World& world); // dt will be automatically calculated and limited by step_dt_limit
     void step(World& world, float dt);
@@ -49,7 +53,9 @@ struct ZECS_EXPORT TaskGraph
     float step_dt_limit = 0.25f;
 
 protected:
-    using TaskClock = std::chrono::high_resolution_clock;
+    // steady_clock never goes back, also when the time of the computer
+    // is changed. So dt is never less than zero.
+    using TaskClock = std::chrono::steady_clock;
     using TaskTimePoint = std::chrono::time_point<TaskClock>;
     using TaskList = std::vector<std::pair<Task, TickContext>>;
 
@@ -63,8 +69,11 @@ protected:
     TaskList tasks_step_fixed;
     TaskList tasks_shutdown;
 
+    // Fills `tasks` with the tasks of `ids`. The old tasks of the list are removed.
+    static void tasks_find(const std::vector<std::string>& ids, TaskList& tasks);
+
     void exec_with_context(World& world, TaskList& tasks, float dt);
-    void exec_witout_context(World& world, TaskList& tasks);
+    void exec_without_context(World& world, TaskList& tasks);
 };
 
 } // namespace zecs

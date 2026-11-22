@@ -2,6 +2,7 @@
 #include "zecs/types.h"
 #include "zecs/world.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 
@@ -15,8 +16,8 @@ TaskManager* TaskManager::instance()
 
 void TaskManager::add(const char* task_id, Task task)
 {
-    auto res = tasks.emplace(std::string(task_id), task);
-    assert(res.second);
+    [[maybe_unused]] const auto res = tasks.emplace(std::string(task_id), task);
+    assert(res.second); // a task with this ID is here already
 }
 
 Task TaskManager::get(const char* task_id)
@@ -30,44 +31,32 @@ TaskGraph::~TaskGraph()
     assert(!initialized);
 }
 
+void TaskGraph::tasks_find(const std::vector<std::string>& ids, TaskList& tasks)
+{
+    // init() can be called again after shutdown(), so the list is cleared first.
+    tasks.clear();
+    tasks.reserve(ids.size());
+
+    for (const std::string& task_id : ids)
+    {
+        Task task = TaskManager::instance()->get(task_id.c_str());
+        assert(task != nullptr);
+        tasks.push_back({ task, TickContext() });
+    }
+}
+
 void TaskGraph::init(World& world)
 {
     assert(!initialized);
 
-    tasks_init.reserve(init_ids.size());
-    for (const std::string& task_id : init_ids)
-    {
-        Task task = TaskManager::instance()->get(task_id.c_str());
-        assert(task != nullptr);
-        tasks_init.push_back({ task, TickContext() });
-    }
+    tasks_find(init_ids, tasks_init);
+    tasks_find(step_normal_ids, tasks_step_normal);
+    tasks_find(step_fixed_ids, tasks_step_fixed);
+    tasks_find(shutdown_ids, tasks_shutdown);
 
-    tasks_step_normal.reserve(step_normal_ids.size());
-    for (const std::string& task_id : step_normal_ids)
-    {
-        Task task = TaskManager::instance()->get(task_id.c_str());
-        assert(task != nullptr);
-        tasks_step_normal.push_back({ task, TickContext() });
-    }
-
-    tasks_step_fixed.reserve(step_fixed_ids.size());
-    for (const std::string& task_id : step_fixed_ids)
-    {
-        Task task = TaskManager::instance()->get(task_id.c_str());
-        assert(task != nullptr);
-        tasks_step_fixed.push_back({ task, TickContext() });
-    }
-
-    tasks_shutdown.reserve(shutdown_ids.size());
-    for (const std::string& task_id : shutdown_ids)
-    {
-        Task task = TaskManager::instance()->get(task_id.c_str());
-        assert(task != nullptr);
-        tasks_shutdown.push_back({ task, TickContext() });
-    }
-
+    fixed_accumulator = 0.0f;
     prev_time_point = TaskClock::now();
-    exec_witout_context(world, tasks_init);
+    exec_without_context(world, tasks_init);
     initialized = true;
 }
 
@@ -85,6 +74,8 @@ void TaskGraph::step(World& world)
 
 void TaskGraph::step(World& world, float dt)
 {
+    assert(initialized);
+
     prev_time_point = TaskClock::now();
     exec_with_context(world, tasks_step_normal, dt);
 
@@ -99,7 +90,7 @@ void TaskGraph::step(World& world, float dt)
 void TaskGraph::shutdown(World& world)
 {
     assert(initialized);
-    exec_witout_context(world, tasks_shutdown);
+    exec_without_context(world, tasks_shutdown);
     initialized = false;
 }
 
@@ -127,7 +118,7 @@ void TaskGraph::exec_with_context(World& world, TaskGraph::TaskList& tasks, floa
     }
 }
 
-void TaskGraph::exec_witout_context(World& world, TaskGraph::TaskList& tasks)
+void TaskGraph::exec_without_context(World& world, TaskGraph::TaskList& tasks)
 {
     GTick cur_tick = world.tick_get();
 

@@ -252,6 +252,54 @@ TEST_CASE("task_graph")
         CHECK(world.tick_get() == tick_after_setup + 5);
     }
 
+    SUBCASE("a graph that is started again runs every task one time")
+    {
+        zecs::World world("task-again");
+        zecs::TaskGraph graph(0.1f);
+        TaskGraphShutdownGuard shutdown_guard(graph, world);
+
+        TaskLog log;
+        ScopedTaskLog scoped_log(log);
+
+        graph.init_ids = { "test_task_graph/init_first" };
+        graph.step_normal_ids = { "test_task_graph/step_normal" };
+        graph.step_fixed_ids = { "test_task_graph/step_fixed" };
+        graph.shutdown_ids = { "test_task_graph/shutdown_first" };
+
+        graph.init(world);
+        graph.step(world, 0.07f); // too short for a fixed step: 0.07 stays in the graph
+        graph.shutdown(world);
+
+        log.order.clear();
+        graph.init(world);
+        graph.step(world, 0.07f);
+        graph.shutdown(world);
+
+        // The time left from the first start isn't added to the second one,
+        // so there is no fixed step here too.
+        const std::vector<std::string> expected = { "init/first", "step/normal", "shutdown/first" };
+        CHECK(log.order == expected);
+    }
+
+    SUBCASE("the default time of a fixed step")
+    {
+        zecs::World world("task-default");
+        zecs::TaskGraph graph;
+        TaskGraphShutdownGuard shutdown_guard(graph, world);
+
+        TaskLog log;
+        ScopedTaskLog scoped_log(log);
+
+        graph.step_fixed_ids = { "test_task_graph/step_fixed" };
+        graph.init(world);
+        graph.step(world, 0.1f);
+
+        // 0.1 second has three steps of 0.027 in it.
+        REQUIRE(log.fixed_dt.size() == 3);
+        CHECK(log.fixed_dt[0] == doctest::Approx(zecs::TaskGraph::FIXED_TIME_DEFAULT));
+        CHECK(zecs::TaskGraph::FIXED_TIME_DEFAULT == doctest::Approx(0.027f));
+    }
+
     SUBCASE("skip keeps previous since until task completes without skipping")
     {
         zecs::World world("task-skip");

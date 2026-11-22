@@ -1,10 +1,10 @@
 # ZECS
 
 [![CI](https://github.com/smile4u/zecs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smile4u/zecs/actions/workflows/ci.yml)
+[![License: MIT](.github/badges/license.svg)](LICENSE)
+[![C++20](.github/badges/cpp.svg)](https://en.cppreference.com/w/cpp/20)
 
-A small entity component system (ECS) for C++20.
-
-Version 0.1. The API can still change before 1.0.
+Small and powerful C++20 entity component system (ECS) with built-in component change tracking.
 
 ## About the project
 

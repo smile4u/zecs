@@ -80,12 +80,12 @@ struct CompPool2Base
             }
         }
 
-        // size_t, not DIndex. Measured: with a 32-bit index the loop
-        // of a group view with many pools is about 20% slower.
+        // size_t, not DIndex: with a 32-bit index the loop of a group view
+        // with many pools is slower.
         size_t index = DIndex_NONE;
         const Dense* dense = nullptr;
         // The entity of the current slot. operator* returns it and doesn't
-        // read the slot again. Measured: view loops are up to 10% faster.
+        // read the slot again, so view loops are faster.
         Entity entity = Entity_INVALID;
     };
 

@@ -164,8 +164,8 @@ private:
     // exist because comp_slot_ensure() is called for every live di on add().
     // `~di`: slot 1 is at the end of its page, and the next slots stand
     // before it. A pass goes from the last slot to the first (see EntityIt),
-    // so it reads a page from low addresses to high ones. Measured: a pool
-    // bigger than the CPU cache is about 20% slower in the other direction.
+    // so it reads a page from low addresses to high ones. The CPU reads
+    // memory faster in this direction.
     inline T* comp_slot(DIndex di) const noexcept
     {
         // A tag has no object: the pointer only says "the tag is here".
@@ -182,6 +182,7 @@ private:
         while (pages.size() <= pi)
             pages.push_back(static_cast<T*>(mem_pool_data_alloc(sizeof(T) * PAGE_SIZE, alignof(T))));
 
+        // `~di`: the same place in the page as in comp_slot().
         return &pages[pi][~di & PAGE_MASK];
     }
 

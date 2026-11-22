@@ -42,7 +42,7 @@ struct CompConfigDefault
     // The size in bytes is limited so that a pool of big components doesn't
     // take a lot of memory for its first component. The number is rounded up
     // to a power of two: with pages smaller than 64 KB adding components
-    // was measurably slower.
+    // is slower.
     static constexpr std::size_t page_size = comp_page_size_default<T>();
 
     // False (the default): the pool has no empty slots. When a component

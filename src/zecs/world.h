@@ -594,8 +594,8 @@ inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const
 {
     // The pass goes from the last slot to slot 1. EntityIt does the same,
     // and the reason is written there.
-    // The index is DIndex, not size_t like in EntityIt. Measured: this
-    // loop is a few percent faster with a 32-bit index.
+    // The index is DIndex, not size_t like in EntityIt: this loop
+    // is faster with a 32-bit index.
     for (DIndex i = lead.dense_last(); i != DIndex_NONE; --i)
     {
         const Entity e = lead.dense[i];

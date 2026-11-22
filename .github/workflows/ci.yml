@@ -25,15 +25,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The flags go in CXXFLAGS, not in CMAKE_CXX_FLAGS: CMake adds CXXFLAGS
+      # to its default flags. CMAKE_CXX_FLAGS would replace them, and MSVC
+      # would lose /EHsc and build without exceptions.
       - name: Configure
         shell: bash
+        env:
+          CXXFLAGS: ${{ matrix.flags }}
         run: >
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=${{ matrix.type }}
           -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           -DZECS_BUILD_TESTS=ON
           ${{ matrix.cxx != '' && format('-DCMAKE_CXX_COMPILER={0}', matrix.cxx) || '' }}
-          "-DCMAKE_CXX_FLAGS=${{ matrix.flags }}"
 
       - name: Build
         run: cmake --build build --config ${{ matrix.type }} --parallel

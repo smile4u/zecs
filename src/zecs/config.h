@@ -4,7 +4,7 @@
 
 #include <cstddef>
 
-// This file describes everything that a user can change in zecs.
+// This file describes everything that a user can change in ZECS.
 
 namespace zecs
 {

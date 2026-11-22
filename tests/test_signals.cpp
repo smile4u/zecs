@@ -22,7 +22,7 @@ struct SignalProbe
     {
         // Reentrant add: the callback mutates the same entity while the outer add
         // is still unwinding. This is the most important signal-race analogue from
-        // entt for the current zecs API.
+        // entt for the current ZECS API.
         log->order.emplace_back("position/added");
         ++log->added_calls;
 

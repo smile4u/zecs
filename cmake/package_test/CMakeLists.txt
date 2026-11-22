@@ -1,4 +1,4 @@
-# A small project that uses an installed zecs. The CI builds and runs it
+# A small project that uses an installed ZECS. The CI builds and runs it
 # to check the install rules.
 cmake_minimum_required(VERSION 3.21)
 

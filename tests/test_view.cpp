@@ -35,7 +35,7 @@ static_assert(view_has_stable_identity<zecs::ViewPools>);
 
 } // namespace
 
-// Covers the main zecs views on populated and empty worlds:
+// Covers the main ZECS views on populated and empty worlds:
 // component views, group views, stale views, mutation during traversal and membership cleanup.
 TEST_CASE("view_api")
 {
@@ -44,7 +44,7 @@ TEST_CASE("view_api")
     SUBCASE("views over missing pools and deques behave as empty ranges")
     {
         // This block mirrors the invalid-view coverage from entt. The goal is to
-        // lock in that zecs returns harmless empty ranges when the corresponding
+        // lock in that ZECS returns harmless empty ranges when the corresponding
         // pool or event deque has never been created.
         zecs::World world("empty-views");
         const zecs::TickContext ctx(world.tick_get());
@@ -67,7 +67,7 @@ TEST_CASE("view_api")
 
     SUBCASE("views captured before pool creation stay stale while fresh views see new pools")
     {
-        // Unlike entt registry views, zecs views are thin wrappers around the pool
+        // Unlike entt registry views, ZECS views are thin wrappers around the pool
         // pointer available at construction time. Capturing a view before the pool
         // exists should therefore remain empty, while a freshly requested view
         // should immediately observe the newly created pool.
@@ -308,7 +308,7 @@ TEST_CASE("view_api")
 
     SUBCASE("views rebuild membership correctly after remove re-add and entity replacement")
     {
-        // This is the closest zecs analogue to entt's clean view/group tests.
+        // This is the closest ZECS analogue to entt's clean view/group tests.
         // The intent is to ensure that intersection membership isn't cached
         // incorrectly across remove, re-add and full entity replacement.
         zecs::World world("clean-membership");

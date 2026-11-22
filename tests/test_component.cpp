@@ -372,7 +372,7 @@ TEST_CASE("component_api")
 
         SUBCASE("component pools are created lazily and persist after last component removal")
         {
-            // This block documents the pool lifecycle that zecs exposes through
+            // This block documents the pool lifecycle that ZECS exposes through
             // `comp_pool_get()` and `view_pools()`: pools don't exist before the
             // first add, but once created they remain registered even if all
             // components of that type are removed later.

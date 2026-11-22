@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.21)
 
 project(zecs VERSION 0.1.0 LANGUAGES CXX)
 
-# PROJECT_IS_TOP_LEVEL is false when another project adds zecs with
+# PROJECT_IS_TOP_LEVEL is false when another project adds ZECS with
 # add_subdirectory(). Then the tests and the install rules are off by default.
-option(ZECS_BUILD_TESTS "Build the tests of zecs" ${PROJECT_IS_TOP_LEVEL})
-option(ZECS_INSTALL "Make the install rules of zecs" ${PROJECT_IS_TOP_LEVEL})
+option(ZECS_BUILD_TESTS "Build the tests of ZECS" ${PROJECT_IS_TOP_LEVEL})
+option(ZECS_INSTALL "Make the install rules of ZECS" ${PROJECT_IS_TOP_LEVEL})
 option(ZECS_EXPERIMENTAL_EVENTS "Turn on the events API. It is a draft: see roadmap.md" OFF)
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -37,7 +37,7 @@ target_include_directories(zecs PUBLIC
     $<BUILD_INTERFACE:${SRC_DIR}>
     $<INSTALL_INTERFACE:include>)
 
-# The headers of zecs include <signal/Signal.h>, so the folder with it is
+# The headers of ZECS include <signal/Signal.h>, so the folder with it is
 # public too. SYSTEM: the compiler shows no warnings for this code.
 target_include_directories(zecs SYSTEM PUBLIC
     $<BUILD_INTERFACE:${EXT_DIR}>
@@ -47,8 +47,8 @@ if(ZECS_EXPERIMENTAL_EVENTS)
     target_compile_definitions(zecs PUBLIC ZECS_EXPERIMENTAL_EVENTS)
 endif()
 
-# Warnings are on only when zecs is built by itself: a project that
-# uses zecs doesn't need to see them.
+# Warnings are on only when ZECS is built by itself: a project that
+# uses ZECS doesn't need to see them.
 if(PROJECT_IS_TOP_LEVEL)
     if(MSVC)
         set(ZECS_WARNING_FLAGS /W4)

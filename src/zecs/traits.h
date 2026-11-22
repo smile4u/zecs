@@ -5,8 +5,16 @@
 #include <cstddef>
 #include <type_traits>
 
+#include "zecs/guid.h"
+
 namespace zecs
 {
+
+// A type that can be a component: an object type without const and
+// volatile (see GUidT). `world.comp_get<const Position>(e)` doesn't
+// compile: write `world.comp_get<Position>(e)`.
+template<typename T>
+concept CompT = GUidT<T>;
 
 // A tag has no data and needs no constructor or destructor call.
 // Only then a pool keeps no memory for it. Any other empty type

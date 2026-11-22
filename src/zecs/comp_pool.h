@@ -15,7 +15,7 @@
 namespace zecs
 {
 
-template<typename T>
+template<CompT T>
 struct CompPool : public CompPoolBase
 {
     static constexpr uint32_t PAGE_SIZE = CompConfig<T>::page_size;

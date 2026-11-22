@@ -67,65 +67,65 @@ struct ZECS_EXPORT World
     // is removed. To keep pointers valid longer, see stable_pointers
     // in config.h.
 
-    template<typename T, typename... Args>
+    template<CompT T, typename... Args>
     T* comp_add(Entity e, Args&&... args);
     void* comp_add(Entity e, GUid guid);
 
-    template<typename T, typename... Args>
+    template<CompT T, typename... Args>
     T* comp_add_sc(Args&&... args);
 
-    template<typename T>
+    template<CompT T>
     T* comp_get(Entity e);
     void* comp_get(Entity e, GUid guid);
 
-    template<typename T>
+    template<CompT T>
     T* comp_get_sc();
 
-    template<typename T>
+    template<CompT T>
     T* comp_get_or_add(Entity e);
     void* comp_get_or_add(Entity e, GUid guid);
 
-    template<typename T>
+    template<CompT T>
     T* comp_get_or_add_sc();
 
-    template<typename T>
+    template<CompT T>
     bool comp_remove(Entity e);
     bool comp_remove(Entity e, GUid guid);
 
-    template<typename T>
+    template<CompT T>
     bool comp_remove_sc();
 
     // Removes all components of the entity. The entity stays valid.
     void comp_remove_all(Entity e);
 
-    template<typename T>
+    template<CompT T>
     void comp_patch(Entity e);
 
-    template<typename T>
+    template<CompT T>
     void comp_patch(Entity e, T* comp); // same as comp_patch<T>(e): the pointer only tells the type
     void comp_patch(Entity e, GUid guid);
 
     // The signals of a component type. See the contract of their handlers
     // in comp_pool_base.h: a handler must not add or remove components
     // of this type and must not connect or disconnect its handlers.
-    template<typename T>
+    template<CompT T>
     CompPoolSignal& comp_on_added();
 
-    template<typename T>
+    template<CompT T>
     CompPoolSignal& comp_on_removed();
 
-    template<typename T>
+    template<CompT T>
     CompPoolSignal& comp_on_patched();
 
     // ------------------------------------------
     // Pools API
     // ------------------------------------------
 
-    template<typename T>
+    template<CompT T>
     CompPool<T>* comp_pool_get();
     CompPoolBase* comp_pool_get(GUid guid);
 
-    template<typename T>
+    template<CompT T>
     CompPool<T>* comp_pool_get_or_add();
 
     // ------------------------------------------
@@ -158,15 +158,15 @@ struct ZECS_EXPORT World
     ViewPools view_pools();
     ViewEntities view_entities();
 
-    template<typename T>
+    template<CompT T>
     ViewComps view_comps();
     ViewComps view_comps(GUid guid);
 
-    template<typename... T>
+    template<CompT... T>
     ViewCompGroup<T...> view_comp_group();
     ViewCompGroupRt view_comp_group(const GUid* guids, size_t count);
 
-    template<typename T>
+    template<CompT T>
     ViewPatchedComps view_patched_comps(const TickContext& ctx);
     ViewPatchedComps view_patched_comps(GUid guid, const TickContext& ctx);
 
@@ -188,7 +188,7 @@ struct ZECS_EXPORT World
     // Contract: a scope is used only with the world that made it.
     // It is checked by assert.
 
-    template<typename... T>
+    template<CompT... T>
     QueryScope<T...> query_scope();
 
     // True when the entity has every component of the scope.
@@ -212,7 +212,7 @@ struct ZECS_EXPORT World
     // other entities in the body, read about stable_pointers in config.h.
     // A component that the body adds can be visited in the same pass or not.
     // Don't call compact() in the body.
-    template<typename... T, typename F>
+    template<CompT... T, typename F>
     void query_for_each(const QueryScope<T...>& scope, F&& body);
 
     // ------------------------------------------
@@ -235,7 +235,7 @@ private:
     World(const World&) = delete;
     World& operator=(const World&) = delete;
 
-    template<typename F, typename... T, size_t... I>
+    template<typename F, CompT... T, size_t... I>
     static void query_for_each_loop(F& body, std::index_sequence<I...>, const CompPoolBase& lead, CompPool<T>&... pool);
 
     using CompPoolCreateFn = CompPoolBase* (*)();
@@ -325,7 +325,7 @@ inline void* World::comp_get(Entity e, GUid guid)
     return nullptr;
 }
 
-template<typename T>
+template<CompT T>
 inline CompPool<T>* World::comp_pool_get()
 {
     // No pool has index 0, so a type without an index gives nullptr here:
@@ -349,7 +349,7 @@ inline CompPoolBase* World::comp_pool_get_impl(CUidIndex cindex)
     return (index < comp_pools.size()) ? comp_pools[index].get() : nullptr;
 }
 
-template<typename T>
+template<CompT T>
 CompPool<T>* World::comp_pool_get_or_add()
 {
     CUidIndex cindex = cuidIndex<T>;
@@ -373,33 +373,33 @@ CompPool<T>* World::comp_pool_get_or_add()
     return static_cast<CompPool<T>*>(ret);
 }
 
-template<typename T, typename... Args>
+template<CompT T, typename... Args>
 inline T* World::comp_add(Entity e, Args&&... args)
 {
     assert(entity_is_valid(e) && !entity_is_removing(e));
     return comp_pool_get_or_add<T>()->add(e, &tick, std::forward<Args>(args)...);
 }
 
-template<typename T, typename... Args>
+template<CompT T, typename... Args>
 inline T* World::comp_add_sc(Args&&... args)
 {
     return comp_add<T>(entities_root, std::forward<Args>(args)...);
 }
 
-template<typename T>
+template<CompT T>
 inline T* World::comp_get(Entity e)
 {
     auto* pool = comp_pool_get<T>();
     return (pool) ? pool->get(e) : nullptr;
 }
 
-template<typename T>
+template<CompT T>
 inline T* World::comp_get_sc()
 {
     return comp_get<T>(entities_root);
 }
 
-template<typename T>
+template<CompT T>
 inline T* World::comp_get_or_add(Entity e)
 {
     assert(entity_is_valid(e) && !entity_is_removing(e));
@@ -407,26 +407,26 @@ inline T* World::comp_get_or_add(Entity e)
     return res.first;
 }
 
-template<typename T>
+template<CompT T>
 inline T* World::comp_get_or_add_sc()
 {
     return comp_get_or_add<T>(entities_root);
 }
 
-template<typename T>
+template<CompT T>
 inline bool World::comp_remove(Entity e)
 {
     auto* pool = comp_pool_get<T>();
     return (pool) ? pool->remove(e) : false;
 }
 
-template<typename T>
+template<CompT T>
 inline bool World::comp_remove_sc()
 {
     return comp_remove<T>(entities_root);
 }
 
-template<typename T>
+template<CompT T>
 inline void World::comp_patch(Entity e)
 {
     auto* pool = comp_pool_get<T>();
@@ -434,7 +434,7 @@ inline void World::comp_patch(Entity e)
     pool->patch(e, &tick);
 }
 
-template<typename T>
+template<CompT T>
 inline void World::comp_patch(Entity e, T* comp)
 {
     auto* pool = comp_pool_get<T>();
@@ -442,7 +442,7 @@ inline void World::comp_patch(Entity e, T* comp)
     pool->patch(e, &tick);
 }
 
-template<typename  T>
+template<CompT T>
 inline CompPoolSignal& World::comp_on_added()
 {
     auto* pool = comp_pool_get_or_add<T>();
@@ -450,7 +450,7 @@ inline CompPoolSignal& World::comp_on_added()
     return pool->on_added;
 }
 
-template<typename  T>
+template<CompT T>
 inline CompPoolSignal& World::comp_on_removed()
 {
     auto* pool = comp_pool_get_or_add<T>();
@@ -458,7 +458,7 @@ inline CompPoolSignal& World::comp_on_removed()
     return pool->on_removed;
 }
 
-template<typename T>
+template<CompT T>
 inline CompPoolSignal& World::comp_on_patched()
 {
     auto* pool = comp_pool_get_or_add<T>();
@@ -521,7 +521,7 @@ inline ViewPools World::view_pools()
     return ViewPools(comp_pools_packed);
 }
 
-template<typename T>
+template<CompT T>
 inline ViewComps World::view_comps()
 {
     auto* pool = comp_pool_get<T>();
@@ -534,7 +534,7 @@ inline ViewComps World::view_comps(GUid guid)
     return ViewComps(pool);
 }
 
-template<typename... T>
+template<CompT... T>
 inline ViewCompGroup<T...> World::view_comp_group()
 {
     return ViewCompGroup<T...>({ comp_pool_get<T>()... });
@@ -545,7 +545,7 @@ inline ViewCompGroupRt World::view_comp_group(const GUid* guids, size_t count)
     return ViewCompGroupRt(*this, guids, count);
 }
 
-template<typename T>
+template<CompT T>
 inline ViewPatchedComps World::view_patched_comps(const TickContext& ctx)
 {
     return ViewPatchedComps(comp_pool_get<T>(), ctx.since);
@@ -563,7 +563,7 @@ inline ViewEvents<T> World::view_events(const TickContext& ctx)
     return ViewEvents<T>(event_deque_get<T>(), ctx.since);
 }
 
-template<typename... T>
+template<CompT... T>
 inline QueryScope<T...> World::query_scope()
 {
     return QueryScope<T...>({ comp_pool_get_or_add<T>()... });
@@ -583,7 +583,7 @@ inline bool World::query_has_any(Entity e, const QueryScopeBase<N>& scope) const
     return scope.has_any(e);
 }
 
-template<typename... T, typename F>
+template<CompT... T, typename F>
 inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
 {
     assert(scope.pools[0]->world == this);
@@ -608,7 +608,7 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
 // the arrays can move. With references the compiler can take these reads
 // out of the loop when the body doesn't change the pools. With the
 // pointers from the scope it can't.
-template<typename F, typename... T, size_t... I>
+template<typename F, CompT... T, size_t... I>
 inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const CompPoolBase& lead, CompPool<T>&... pool)
 {
     // The pass goes from the last slot to slot 1. EntityIt does the same,

@@ -17,11 +17,11 @@ enum class GUid : uint32_t; // unique component type identifier
 // another name than `Position`. Without this check it would get its own
 // GUID and its own pool, and its components would not be found.
 template<typename T>
-concept GUidType = std::is_object_v<T> && std::same_as<T, std::remove_cv_t<T>>;
+concept GUidT = std::is_object_v<T> && std::same_as<T, std::remove_cv_t<T>>;
 
 // The value comes from the type name as the compiler prints it. It can differ
 // between compilers and their versions: don't save it to files or send it.
-template<GUidType T>
+template<GUidT T>
 constexpr GUid globalUid = static_cast<GUid>(guid_crc32(guid_name<T>()));
 constexpr GUid GUid_INVALID = static_cast<GUid>(0);
 
@@ -57,10 +57,10 @@ ZECS_EXPORT EUidIndex euid_index_get(GUid guid);
 // index 0, so a search finds nothing. When World makes a pool for such
 // a type, it sets the index. So components can be used in such
 // a constructor too.
-template<GUidType T>
+template<GUidT T>
 inline CUidIndex cuidIndex = cuid_index_register(globalUid<T>, guid_name<T>());
 
-template<GUidType T>
+template<GUidT T>
 inline EUidIndex euidIndex = euid_index_register(globalUid<T>, guid_name<T>());
 
 } // namespace zecs

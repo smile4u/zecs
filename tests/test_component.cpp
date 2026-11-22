@@ -95,6 +95,14 @@ static_assert(zecs::are_types_unique<int, float, char>);
 static_assert(!zecs::are_types_unique<int, float, int>);
 static_assert(!zecs::are_types_unique<int, int>);
 
+// Only an object type without const and volatile is a component.
+static_assert(zecs::CompT<test::Position>);
+static_assert(zecs::CompT<test::Tag>);
+static_assert(!zecs::CompT<const test::Position>);
+static_assert(!zecs::CompT<volatile test::Position>);
+static_assert(!zecs::CompT<test::Position&>);
+static_assert(!zecs::CompT<void>);
+
 TEST_CASE("component_api")
 {
     test::TrackedLifetime::reset();

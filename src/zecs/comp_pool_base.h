@@ -2,6 +2,7 @@
 
 #include "zecs/exports.h"
 #include "zecs/guid.h"
+#include "zecs/traits.h"
 #include "zecs/types.h"
 
 #include <cstddef>
@@ -14,7 +15,7 @@ namespace zecs
 {
 using CompPoolSignal = Gallant::Signal2<World&, Entity>;
 
-template<typename... T>
+template<CompT... T>
 struct ViewCompGroup;
 
 struct CompPoolBase
@@ -52,7 +53,7 @@ struct CompPoolBase
 
     private:
         friend struct CompPoolBase;
-        template<typename... T>
+        template<CompT... T>
         friend struct ViewCompGroup;
 
         // Goes to the next slot, also when it is empty. Only for a group view:

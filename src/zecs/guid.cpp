@@ -11,23 +11,23 @@ namespace zecs
 
 // The index types that have a registry. Each of them has its own one.
 template<typename T>
-concept UidIndexType = std::same_as<T, CUidIndex> || std::same_as<T, EUidIndex>;
+concept UidIndexT = std::same_as<T, CUidIndex> || std::same_as<T, EUidIndex>;
 
-template<UidIndexType T>
+template<UidIndexT T>
 struct UidIndexEntry
 {
     T index;
     std::string name;
 };
 
-template<UidIndexType T>
+template<UidIndexT T>
 std::unordered_map<GUid, UidIndexEntry<T>>& uid_index_map_instance()
 {
     static std::unordered_map<GUid, UidIndexEntry<T>> uid_index_map;
     return uid_index_map;
 }
 
-template<UidIndexType T>
+template<UidIndexT T>
 T uid_index_register(GUid guid, const char* name)
 {
     // Index 0 means "no index yet", so the first type gets 1.
@@ -55,7 +55,7 @@ T uid_index_register(GUid guid, const char* name)
     return new_index;
 }
 
-template<UidIndexType T, T invalid>
+template<UidIndexT T, T invalid>
 T uid_index_get(GUid guid)
 {
     auto& uid_index_map = uid_index_map_instance<T>();

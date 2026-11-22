@@ -14,7 +14,7 @@ namespace zecs
 
 // Hot-path typed view. Pool count and membership checks are compile-time fixed;
 // runtime/debug groups have an independent implementation in view_comps_group_rt.h.
-template<typename... T>
+template<CompT... T>
 struct ViewCompGroup : private ViewCompGroupBase
 {
     static constexpr size_t POOL_COUNT = sizeof...(T);

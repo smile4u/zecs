@@ -28,7 +28,7 @@ struct QueryScopeBase
 
 protected:
     friend struct World;
-    template<typename... T>
+    template<CompT... T>
     friend struct ViewCompGroup;
 
     // The checks don't test for nullptr. World::query_scope() makes
@@ -77,7 +77,7 @@ private:
 // Tells the query_* functions of World which components to work with.
 // It keeps their pools, so the pools are searched in the world one time.
 // It can be kept and copied: it is valid while the world lives.
-template<typename... T>
+template<CompT... T>
 struct QueryScope : QueryScopeBase<sizeof...(T)>
 {
     static_assert(sizeof...(T) > 0);

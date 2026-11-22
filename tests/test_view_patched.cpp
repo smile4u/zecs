@@ -107,6 +107,20 @@ TEST_CASE("view_patched")
         CHECK(test::collect_entities(fx.world.view_patched_comps<test::Position>(ctx)).empty());
     }
 
+    SUBCASE("a patch by a pointer takes the type from the pointer")
+    {
+        const zecs::TickContext ctx = fx.since_setup();
+
+        test::Position* position = fx.world.comp_get<test::Position>(fx.first);
+        REQUIRE(position != nullptr);
+
+        fx.world.comp_patch(fx.first, position);
+
+        const auto entities = test::collect_entities(fx.world.view_patched_comps<test::Position>(ctx));
+        REQUIRE(entities.size() == 1);
+        CHECK(entities[0] == fx.first);
+    }
+
     SUBCASE("newly added component can be repatched and still appears once")
     {
         const zecs::TickContext ctx = fx.since_setup();

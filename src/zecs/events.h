@@ -9,7 +9,7 @@
 
 namespace zecs
 {
-// DRAFT: events aren't finished and not reviewed yet. See known_issues.md.
+// DRAFT: events aren't finished and not reviewed yet. See roadmap.md.
 struct EventDequeBase
 {
     virtual ~EventDequeBase() = default;

@@ -9,7 +9,9 @@
 #include "zecs/view_comps_group.h"
 #include "zecs/view_comps_group_rt.h"
 #include "zecs/view_entities.h"
+#ifdef ZECS_EXPERIMENTAL_EVENTS
 #include "zecs/view_events.h"
+#endif
 #include "zecs/view_patched_comps.h"
 #include "zecs/view_pools.h"
 
@@ -130,9 +132,13 @@ struct ZECS_EXPORT World
 
     // ------------------------------------------
     // Events API
-    // DRAFT: not finished and not reviewed yet. See known_issues.md.
+    // DRAFT: not finished and not reviewed yet. See roadmap.md.
+    // The functions are here only when ZECS_EXPERIMENTAL_EVENTS is defined.
+    // The fields of World for events are always here, so the size of World
+    // is the same with the macro and without it.
     // ------------------------------------------
 
+#ifdef ZECS_EXPERIMENTAL_EVENTS
     template<typename T>
     EventDeque<T>* event_deque_get();
     EventDequeBase* event_deque_get(GUid guid);
@@ -145,6 +151,7 @@ struct ZECS_EXPORT World
 
     template<typename T, typename... Args>
     void event_push(Args&&... args);
+#endif
 
     // ------------------------------------------
     // Views API
@@ -170,8 +177,10 @@ struct ZECS_EXPORT World
     ViewPatchedComps view_patched_comps(const TickContext& ctx);
     ViewPatchedComps view_patched_comps(GUid guid, const TickContext& ctx);
 
+#ifdef ZECS_EXPERIMENTAL_EVENTS
     template<typename T>
     ViewEvents<T> view_events(const TickContext& ctx);
+#endif
 
     // ------------------------------------------
     // Tick API
@@ -343,6 +352,12 @@ inline CompPoolBase* World::comp_pool_get(GUid guid)
     return comp_pool_get_impl(cindex);
 }
 
+inline EventDequeBase* World::event_pool_get_impl(EUidIndex eindex)
+{
+    const size_t index = static_cast<size_t>(eindex);
+    return (index < event_deques.size()) ? event_deques[index].get() : nullptr;
+}
+
 inline CompPoolBase* World::comp_pool_get_impl(CUidIndex cindex)
 {
     const size_t index = static_cast<size_t>(cindex);
@@ -466,6 +481,7 @@ inline CompPoolSignal& World::comp_on_patched()
     return pool->on_patched;
 }
 
+#ifdef ZECS_EXPERIMENTAL_EVENTS
 template<typename T>
 inline EventDeque<T>* World::event_deque_get()
 {
@@ -477,12 +493,6 @@ inline EventDequeBase* World::event_deque_get(GUid guid)
 {
     const EUidIndex eindex = euid_index_get(guid);
     return event_pool_get_impl(eindex);
-}
-
-inline EventDequeBase* World::event_pool_get_impl(EUidIndex eindex)
-{
-    const size_t index = static_cast<size_t>(eindex);
-    return (index < event_deques.size()) ? event_deques[index].get() : nullptr;
 }
 
 template<typename T>
@@ -510,6 +520,13 @@ inline void World::event_push(Args&&... args)
 {
     event_deque_get_or_add<T>()->push(T(std::forward<Args>(args)...));
 }
+
+template<typename T>
+inline ViewEvents<T> World::view_events(const TickContext& ctx)
+{
+    return ViewEvents<T>(event_deque_get<T>(), ctx.since);
+}
+#endif // ZECS_EXPERIMENTAL_EVENTS
 
 inline ViewEntities World::view_entities()
 {
@@ -555,12 +572,6 @@ inline ViewPatchedComps World::view_patched_comps(GUid guid, const TickContext& 
 {
     CompPoolBase* pool = comp_pool_get(guid);
     return ViewPatchedComps(pool, ctx.since);
-}
-
-template<typename T>
-inline ViewEvents<T> World::view_events(const TickContext& ctx)
-{
-    return ViewEvents<T>(event_deque_get<T>(), ctx.since);
 }
 
 template<CompT... T>

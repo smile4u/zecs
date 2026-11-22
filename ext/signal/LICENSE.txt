@@ -1,6 +1,20 @@
+Signals by Patrick Hogan
+https://github.com/pbhogan/Signals
+
+The project has no license file. Its README says:
+
+    Signals.h is released under the MIT License:
+    http://www.opensource.org/licenses/mit-license.php
+    Delegates.h is released into the public domain by the author
+    and may be used for any purpose.
+
+------------------------------------------------------------------------
+Signal.h
+------------------------------------------------------------------------
+
 The MIT License (MIT)
 
-Copyright (c) 2016-2023 Viktor Kirilov
+Copyright (c) 2009 Patrick Hogan
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +33,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+------------------------------------------------------------------------
+Delegate.h
+------------------------------------------------------------------------
+
+FastDelegate by Don Clugston, with contributions by Jody Hagins,
+changed by Patrick Hogan.
+http://www.codeproject.com/KB/cpp/FastDelegate.aspx
+
+This code is released into the public domain and may be used for any purpose.

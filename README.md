@@ -1,6 +1,9 @@
 # ZECS
 
+[![CI](https://github.com/smile4u/zecs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smile4u/zecs/actions/workflows/ci.yml)
+
 A small entity component system (ECS) for C++20.
+
 Version 0.1. The API can still change before 1.0.
 
 ## About the project

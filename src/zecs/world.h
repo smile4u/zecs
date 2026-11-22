@@ -95,6 +95,7 @@ struct ZECS_EXPORT World
     template<typename T>
     bool comp_remove_sc();
 
+    // Removes all components of the entity. The entity stays valid.
     void comp_remove_all(Entity e);
 
     template<typename T>

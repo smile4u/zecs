@@ -61,22 +61,7 @@ bool World::entity_remove(Entity e)
     entities_removing.push_back(e);
 #endif
 
-    // A handler of on_removed can make a new pool. Then the list of pools
-    // grows and can move to new memory. So we read the list again after
-    // every removal. New pools are checked too.
-    CompPool2Base** pools = comp_pools_packed.data();
-    size_t count = comp_pools_packed.size();
-    for (size_t i = 0; i < count; ++i)
-    {
-        // Most pools don't have this entity. The check
-        // is inline, so we don't pay for a call.
-        if (!pools[i]->contains(e))
-            continue;
-
-        pools[i]->remove(e);
-        pools = comp_pools_packed.data();
-        count = comp_pools_packed.size();
-    }
+    comp_remove_all(e);
 
 #ifdef ZECS_DEBUG
     // A handler can remove other entities. Each of them leaves the list
@@ -105,6 +90,27 @@ bool World::entity_remove(Entity e)
     entities[eindex] = static_cast<Entity>(next_gen | entity_free_index);
     entity_free_index = eindex;
     return true;
+}
+
+void World::comp_remove_all(Entity e)
+{
+    // There is no check of the entity: no pool contains an ID that isn't valid.
+    // A handler of on_removed can make a new pool. Then the list of pools
+    // grows and can move to new memory. So we read the list again after
+    // every removal. New pools are checked too.
+    CompPool2Base** pools = comp_pools_packed.data();
+    size_t count = comp_pools_packed.size();
+    for (size_t i = 0; i < count; ++i)
+    {
+        // Most pools don't have this entity. The check
+        // is inline, so we don't pay for a call.
+        if (!pools[i]->contains(e))
+            continue;
+
+        pools[i]->remove(e);
+        pools = comp_pools_packed.data();
+        count = comp_pools_packed.size();
+    }
 }
 
 World::Counters World::counters_get() const

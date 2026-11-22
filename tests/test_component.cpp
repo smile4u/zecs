@@ -231,6 +231,35 @@ TEST_CASE("component_api")
             CHECK(EmptyWithDtor::gone == 3);
         }
 
+        SUBCASE("comp_remove_all removes every component and keeps the entity")
+        {
+            zecs::World world;
+            const zecs::Entity entity = world.entity_add();
+            const zecs::Entity other = world.entity_add();
+            world.comp_add<test::Position>(entity);
+            world.comp_add<test::Velocity>(entity);
+            world.comp_add<test::Tag>(entity);
+            world.comp_add<test::Position>(other);
+
+            world.comp_remove_all(entity);
+
+            CHECK(world.entity_is_valid(entity));
+            CHECK(world.comp_get<test::Position>(entity) == nullptr);
+            CHECK(world.comp_get<test::Velocity>(entity) == nullptr);
+            CHECK(world.comp_get<test::Tag>(entity) == nullptr);
+            CHECK(world.comp_get<test::Position>(other) != nullptr);
+            CHECK(world.counters_get().components == 1);
+
+            // It does nothing for an entity without components and for an old ID.
+            world.comp_remove_all(entity);
+            world.entity_remove(other);
+            world.comp_remove_all(other);
+            CHECK(world.counters_get().components == 0);
+
+            // The entity can get components again.
+            CHECK(world.comp_add<test::Position>(entity) != nullptr);
+        }
+
         SUBCASE("pool knows its component type")
         {
             const zecs::CompPool2Base* pool = fx.world.comp_pool_get(zecs::globalUid<test::Position>);

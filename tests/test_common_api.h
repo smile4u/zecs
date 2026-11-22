@@ -107,10 +107,10 @@ inline std::vector<zecs::Entity> sorted(std::vector<zecs::Entity> entities)
     return entities;
 }
 
-inline std::vector<zecs::CompPool2Base*> collect_pools(zecs::ViewPools view)
+inline std::vector<zecs::CompPoolBase*> collect_pools(zecs::ViewPools view)
 {
-    std::vector<zecs::CompPool2Base*> pools;
-    for (zecs::CompPool2Base* pool : view)
+    std::vector<zecs::CompPoolBase*> pools;
+    for (zecs::CompPoolBase* pool : view)
         pools.push_back(pool);
 
     return pools;

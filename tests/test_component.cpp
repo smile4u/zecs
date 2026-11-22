@@ -262,7 +262,7 @@ TEST_CASE("component_api")
 
         SUBCASE("pool knows its component type")
         {
-            const zecs::CompPool2Base* pool = fx.world.comp_pool_get(zecs::globalUid<test::Position>);
+            const zecs::CompPoolBase* pool = fx.world.comp_pool_get(zecs::globalUid<test::Position>);
             REQUIRE(pool != nullptr);
 
             CHECK(pool == fx.world.comp_pool_get<test::Position>());
@@ -272,11 +272,11 @@ TEST_CASE("component_api")
 
         SUBCASE("pool page is about 64 KB and at most 4096 components")
         {
-            CHECK(zecs::CompPool2<test::Position>::PAGE_SIZE == 4096);
-            CHECK(zecs::CompPool2<Big>::PAGE_SIZE == 512);
-            CHECK(zecs::CompPool2<Huge>::PAGE_SIZE == 1);
-            CHECK(zecs::CompPool2<OwnPage>::PAGE_SIZE == 8);
-            CHECK(zecs::CompPool2<ForeignPage>::PAGE_SIZE == 16);
+            CHECK(zecs::CompPool<test::Position>::PAGE_SIZE == 4096);
+            CHECK(zecs::CompPool<Big>::PAGE_SIZE == 512);
+            CHECK(zecs::CompPool<Huge>::PAGE_SIZE == 1);
+            CHECK(zecs::CompPool<OwnPage>::PAGE_SIZE == 8);
+            CHECK(zecs::CompPool<ForeignPage>::PAGE_SIZE == 16);
 
             // Components keep their values over many pages.
             std::vector<zecs::Entity> entities;

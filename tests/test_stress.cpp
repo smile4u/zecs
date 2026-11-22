@@ -275,7 +275,7 @@ TEST_CASE("stress_churn")
 
     // Every one of the 250 component types should have a materialized pool by now.
     std::size_t pool_count = 0;
-    for (zecs::CompPool2Base* pool : world.view_pools())
+    for (zecs::CompPoolBase* pool : world.view_pools())
     {
         CHECK(pool != nullptr);
         pool_count++;

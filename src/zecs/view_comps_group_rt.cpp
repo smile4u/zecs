@@ -32,14 +32,14 @@ ViewCompGroupRt::ViewCompGroupRt(World& world, const GUid* guids, size_t count_)
     move_leading_pool_front(ptr, count);
 }
 
-CompPool2Base** ViewCompGroupRt::pool_data() noexcept
+CompPoolBase** ViewCompGroupRt::pool_data() noexcept
 {
     if (auto* local = std::get_if<InlinePools>(&pools))
         return local->data();
     return std::get<Pools>(pools).data();
 }
 
-CompPool2Base* const* ViewCompGroupRt::pool_data() const noexcept
+CompPoolBase* const* ViewCompGroupRt::pool_data() const noexcept
 {
     if (const auto* local = std::get_if<InlinePools>(&pools))
         return local->data();

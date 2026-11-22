@@ -109,24 +109,24 @@ struct ZECS_EXPORT World
     // in comp_pool_base.h: a handler must not add or remove components
     // of this type and must not connect or disconnect its handlers.
     template<typename T>
-    CompPool2Signal& comp_on_added();
+    CompPoolSignal& comp_on_added();
 
     template<typename T>
-    CompPool2Signal& comp_on_removed();
+    CompPoolSignal& comp_on_removed();
 
     template<typename T>
-    CompPool2Signal& comp_on_patched();
+    CompPoolSignal& comp_on_patched();
 
     // ------------------------------------------
     // Pools API
     // ------------------------------------------
 
     template<typename T>
-    CompPool2<T>* comp_pool_get();
-    CompPool2Base* comp_pool_get(GUid guid);
+    CompPool<T>* comp_pool_get();
+    CompPoolBase* comp_pool_get(GUid guid);
 
     template<typename T>
-    CompPool2<T>* comp_pool_get_or_add();
+    CompPool<T>* comp_pool_get_or_add();
 
     // ------------------------------------------
     // Events API
@@ -163,7 +163,7 @@ struct ZECS_EXPORT World
     ViewComps view_comps(GUid guid);
 
     template<typename... T>
-    ViewCompGroup2<T...> view_comp_group();
+    ViewCompGroup<T...> view_comp_group();
     ViewCompGroupRt view_comp_group(const GUid* guids, size_t count);
 
     template<typename T>
@@ -236,11 +236,11 @@ private:
     World& operator=(const World&) = delete;
 
     template<typename F, typename... T, size_t... I>
-    static void query_for_each_loop(F& body, std::index_sequence<I...>, const CompPool2Base& lead, CompPool2<T>&... pool);
+    static void query_for_each_loop(F& body, std::index_sequence<I...>, const CompPoolBase& lead, CompPool<T>&... pool);
 
-    using CompPool2CreateFn = CompPool2Base* (*)();
-    CompPool2Base* comp_pool_get_impl(CUidIndex index);
-    CompPool2Base* comp_pool_add(CUidIndex index, CompPool2CreateFn create_fn);
+    using CompPoolCreateFn = CompPoolBase* (*)();
+    CompPoolBase* comp_pool_get_impl(CUidIndex index);
+    CompPoolBase* comp_pool_add(CUidIndex index, CompPoolCreateFn create_fn);
 
     bool entity_is_removing(Entity e) const; // only for asserts
 
@@ -305,20 +305,20 @@ inline bool World::entity_is_removing(Entity e) const
 
 inline bool World::comp_remove(Entity e, GUid guid)
 {
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     return (pool) ? pool->remove(e) : false;
 }
 
 inline void World::comp_patch(Entity e, GUid guid)
 {
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     if (pool)
         return pool->patch(e, &tick);
 }
 
 inline void* World::comp_get(Entity e, GUid guid)
 {
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     if (pool)
         return pool->raw_get(e);
 
@@ -326,34 +326,34 @@ inline void* World::comp_get(Entity e, GUid guid)
 }
 
 template<typename T>
-inline CompPool2<T>* World::comp_pool_get()
+inline CompPool<T>* World::comp_pool_get()
 {
     // No pool has index 0, so a type without an index gives nullptr here:
     // see cuidIndex in guid.h.
     const CUidIndex cindex = cuidIndex<T>;
-    CompPool2Base* ret = comp_pool_get_impl(cindex);
+    CompPoolBase* ret = comp_pool_get_impl(cindex);
 
     assert(!ret || *ret->type == typeid(T)); // two types with the same name
-    return static_cast<CompPool2<T>*>(ret);
+    return static_cast<CompPool<T>*>(ret);
 }
 
-inline CompPool2Base* World::comp_pool_get(GUid guid)
+inline CompPoolBase* World::comp_pool_get(GUid guid)
 {
     const CUidIndex cindex = cuid_index_get(guid);
     return comp_pool_get_impl(cindex);
 }
 
-inline CompPool2Base* World::comp_pool_get_impl(CUidIndex cindex)
+inline CompPoolBase* World::comp_pool_get_impl(CUidIndex cindex)
 {
     const size_t index = static_cast<size_t>(cindex);
     return (index < comp_pools.size()) ? comp_pools[index].get() : nullptr;
 }
 
 template<typename T>
-CompPool2<T>* World::comp_pool_get_or_add()
+CompPool<T>* World::comp_pool_get_or_add()
 {
     CUidIndex cindex = cuidIndex<T>;
-    CompPool2Base* ret = comp_pool_get_impl(cindex);
+    CompPoolBase* ret = comp_pool_get_impl(cindex);
     if (!ret)
     {
         // The type has no index yet: see cuidIndex in guid.h. Set it now,
@@ -366,11 +366,11 @@ CompPool2<T>* World::comp_pool_get_or_add()
         }
 
         if (!ret)
-            ret = comp_pool_add(cindex, []() -> CompPool2Base* { return new CompPool2<T>(); });
+            ret = comp_pool_add(cindex, []() -> CompPoolBase* { return new CompPool<T>(); });
     }
 
     assert(*ret->type == typeid(T)); // two types with the same name
-    return static_cast<CompPool2<T>*>(ret);
+    return static_cast<CompPool<T>*>(ret);
 }
 
 template<typename T, typename... Args>
@@ -443,7 +443,7 @@ inline void World::comp_patch(Entity e, T* comp)
 }
 
 template<typename  T>
-inline CompPool2Signal& World::comp_on_added()
+inline CompPoolSignal& World::comp_on_added()
 {
     auto* pool = comp_pool_get_or_add<T>();
     assert(!pool->signal_is_running()); // see the contract of the signals
@@ -451,7 +451,7 @@ inline CompPool2Signal& World::comp_on_added()
 }
 
 template<typename  T>
-inline CompPool2Signal& World::comp_on_removed()
+inline CompPoolSignal& World::comp_on_removed()
 {
     auto* pool = comp_pool_get_or_add<T>();
     assert(!pool->signal_is_running()); // see the contract of the signals
@@ -459,7 +459,7 @@ inline CompPool2Signal& World::comp_on_removed()
 }
 
 template<typename T>
-inline CompPool2Signal& World::comp_on_patched()
+inline CompPoolSignal& World::comp_on_patched()
 {
     auto* pool = comp_pool_get_or_add<T>();
     assert(!pool->signal_is_running()); // see the contract of the signals
@@ -530,14 +530,14 @@ inline ViewComps World::view_comps()
 
 inline ViewComps World::view_comps(GUid guid)
 {
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     return ViewComps(pool);
 }
 
 template<typename... T>
-inline ViewCompGroup2<T...> World::view_comp_group()
+inline ViewCompGroup<T...> World::view_comp_group()
 {
-    return ViewCompGroup2<T...>({ comp_pool_get<T>()... });
+    return ViewCompGroup<T...>({ comp_pool_get<T>()... });
 }
 
 inline ViewCompGroupRt World::view_comp_group(const GUid* guids, size_t count)
@@ -553,7 +553,7 @@ inline ViewPatchedComps World::view_patched_comps(const TickContext& ctx)
 
 inline ViewPatchedComps World::view_patched_comps(GUid guid, const TickContext& ctx)
 {
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     return ViewPatchedComps(pool, ctx.since);
 }
 
@@ -591,15 +591,15 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
     // The pass goes over the pool with the smallest number of dense slots,
     // so it is the shortest. We count dense slots, not components:
     // the pass visits empty slots too.
-    const CompPool2Base* lead = scope.pools[0];
-    for (const CompPool2Base* pool : scope.pools)
+    const CompPoolBase* lead = scope.pools[0];
+    for (const CompPoolBase* pool : scope.pools)
         if (pool->dense_last() < lead->dense_last())
             lead = pool;
 
     // The pools of the scope stand in the order of its types.
     [&]<size_t... I>(std::index_sequence<I...> indices)
     {
-        query_for_each_loop(body, indices, *lead, *static_cast<CompPool2<T>*>(scope.pools[I])...);
+        query_for_each_loop(body, indices, *lead, *static_cast<CompPool<T>*>(scope.pools[I])...);
     }(std::index_sequence_for<T...>{});
 }
 
@@ -609,7 +609,7 @@ inline void World::query_for_each(const QueryScope<T...>& scope, F&& body)
 // out of the loop when the body doesn't change the pools. With the
 // pointers from the scope it can't.
 template<typename F, typename... T, size_t... I>
-inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const CompPool2Base& lead, CompPool2<T>&... pool)
+inline void World::query_for_each_loop(F& body, std::index_sequence<I...>, const CompPoolBase& lead, CompPool<T>&... pool)
 {
     // The pass goes from the last slot to slot 1. EntityIt does the same,
     // and the reason is written there.

@@ -7,7 +7,7 @@
 namespace zecs
 {
 
-CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_, bool stable_pointers_)
+CompPoolBase::CompPoolBase(GUid guid_, const std::type_info* type_, bool stable_pointers_)
     : guid(guid_)
     , type(type_)
     , stable_pointers(stable_pointers_)
@@ -20,7 +20,7 @@ CompPool2Base::CompPool2Base(GUid guid_, const std::type_info* type_, bool stabl
     patches.push_back(PatchNode());
 }
 
-DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
+DIndex CompPoolBase::dense_add(Entity e, GTick tick) noexcept
 {
     assert(!signal_is_running()); // see the contract of the signals
 
@@ -80,7 +80,7 @@ DIndex CompPool2Base::dense_add(Entity e, GTick tick) noexcept
     return di;
 }
 
-bool CompPool2Base::remove(Entity e) noexcept
+bool CompPoolBase::remove(Entity e) noexcept
 {
     assert(!signal_is_running()); // see the contract of the signals
 
@@ -102,7 +102,7 @@ bool CompPool2Base::remove(Entity e) noexcept
     return true;
 }
 
-void CompPool2Base::dense_rem(DIndex di, DIndex empty) noexcept
+void CompPoolBase::dense_rem(DIndex di, DIndex empty) noexcept
 {
     assert(di != DIndex_NONE && di < dense.size());
     assert(dense_count > 0);
@@ -130,7 +130,7 @@ void CompPool2Base::dense_rem(DIndex di, DIndex empty) noexcept
     }
 }
 
-void CompPool2Base::patch_rem(DIndex di) noexcept
+void CompPoolBase::patch_rem(DIndex di) noexcept
 {
     const DIndex old_prev = patches[di].prev;
     const DIndex old_next = patches[di].next;
@@ -145,7 +145,7 @@ void CompPool2Base::patch_rem(DIndex di) noexcept
         patch_head = old_next;
 }
 
-void CompPool2Base::dense_move(DIndex from, DIndex to) noexcept
+void CompPoolBase::dense_move(DIndex from, DIndex to) noexcept
 {
     const Entity e = dense[from];
     const PatchNode links = patches[from];
@@ -165,7 +165,7 @@ void CompPool2Base::dense_move(DIndex from, DIndex to) noexcept
         patches[links.next].prev = to;
 }
 
-void CompPool2Base::compact() noexcept
+void CompPoolBase::compact() noexcept
 {
     // No empty slots: nothing to do, and the arrays aren't copied.
     if (dense.size() == dense_count + DIndex_FIRST)
@@ -216,7 +216,7 @@ void CompPool2Base::compact() noexcept
     comp_slots_trim(size);
 }
 
-void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept
+void CompPoolBase::dense_patch(DIndex di, GTick tick) noexcept
 {
     assert(di < ticks.size());
 
@@ -242,7 +242,7 @@ void CompPool2Base::dense_patch(DIndex di, GTick tick) noexcept
     ticks[patch_head] = tick;
 }
 
-void CompPool2Base::patched_emit(Entity e) noexcept
+void CompPoolBase::patched_emit(Entity e) noexcept
 {
     signal_emit(on_patched, e);
 }

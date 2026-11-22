@@ -98,7 +98,7 @@ void World::comp_remove_all(Entity e)
     // A handler of on_removed can make a new pool. Then the list of pools
     // grows and can move to new memory. So we read the list again after
     // every removal. New pools are checked too.
-    CompPool2Base** pools = comp_pools_packed.data();
+    CompPoolBase** pools = comp_pools_packed.data();
     size_t count = comp_pools_packed.size();
     for (size_t i = 0; i < count; ++i)
     {
@@ -121,7 +121,7 @@ World::Counters World::counters_get() const
     counters.entities = entity_count;
     counters.pools = comp_pools_packed.size();
 
-    for (const CompPool2Base* pool : comp_pools_packed)
+    for (const CompPoolBase* pool : comp_pools_packed)
         counters.components += pool->size();
 
     return counters;
@@ -130,7 +130,7 @@ World::Counters World::counters_get() const
 void* World::comp_add(Entity e, GUid guid)
 {
     assert(entity_is_valid(e) && !entity_is_removing(e));
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     if (!pool)
         return nullptr;
 
@@ -140,7 +140,7 @@ void* World::comp_add(Entity e, GUid guid)
 void* World::comp_get_or_add(Entity e, GUid guid)
 {
     assert(entity_is_valid(e) && !entity_is_removing(e));
-    CompPool2Base* pool = comp_pool_get(guid);
+    CompPoolBase* pool = comp_pool_get(guid);
     if (!pool)
         return nullptr;
 
@@ -150,11 +150,11 @@ void* World::comp_get_or_add(Entity e, GUid guid)
 
 void World::compact()
 {
-    for (CompPool2Base* pool : comp_pools_packed)
+    for (CompPoolBase* pool : comp_pools_packed)
         pool->compact();
 }
 
-CompPool2Base* World::comp_pool_add(CUidIndex cindex, CompPool2CreateFn create_fn)
+CompPoolBase* World::comp_pool_add(CUidIndex cindex, CompPoolCreateFn create_fn)
 {
     const size_t index = static_cast<size_t>(cindex);
     if (index >= comp_pools.size())

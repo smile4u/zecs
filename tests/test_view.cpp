@@ -25,8 +25,8 @@ constexpr bool view_has_stable_identity =
     && std::is_copy_assignable_v<typename View::It> && std::is_move_assignable_v<typename View::It>;
 
 static_assert(view_has_stable_identity<zecs::ViewComps>);
-static_assert(view_has_stable_identity<zecs::ViewCompGroup2<test::Position>>);
-static_assert(view_has_stable_identity<zecs::ViewCompGroup2<test::Position, test::Velocity>>);
+static_assert(view_has_stable_identity<zecs::ViewCompGroup<test::Position>>);
+static_assert(view_has_stable_identity<zecs::ViewCompGroup<test::Position, test::Velocity>>);
 static_assert(view_has_stable_identity<zecs::ViewCompGroupRt>);
 static_assert(view_has_stable_identity<zecs::ViewEntities>);
 static_assert(view_has_stable_identity<zecs::ViewEvents<test::DamageEvent>>);

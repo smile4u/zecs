@@ -37,9 +37,9 @@ struct SignalCounter
 };
 
 // Reads the size of sparse[], which the pool hides.
-struct PoolProbe : zecs::CompPool2Base
+struct PoolProbe : zecs::CompPoolBase
 {
-    static size_t sparse_size(const zecs::CompPool2Base& pool) { return (pool.*(&PoolProbe::sparse)).size(); }
+    static size_t sparse_size(const zecs::CompPoolBase& pool) { return (pool.*(&PoolProbe::sparse)).size(); }
 };
 
 // More entities than one page of Position holds, so pages are freed too.
@@ -276,8 +276,8 @@ TEST_CASE("compact")
 
     SUBCASE("sparse table ends at the last entity that has the component")
     {
-        const zecs::CompPool2Base& pool = *fx.world.comp_pool_get<test::Position>();
-        const zecs::CompPool2Base& pinned = *fx.world.comp_pool_get_or_add<Pinned>();
+        const zecs::CompPoolBase& pool = *fx.world.comp_pool_get<test::Position>();
+        const zecs::CompPoolBase& pinned = *fx.world.comp_pool_get_or_add<Pinned>();
         const size_t full_size = PoolProbe::sparse_size(pool);
 
         // Pinned can't be moved, but its sparse[] is cut too.
@@ -332,7 +332,7 @@ TEST_CASE("compact")
     {
         fx.remove_all_but_every(4);
 
-        zecs::CompPool2Base* pool = fx.world.comp_pool_get(zecs::globalUid<test::Position>);
+        zecs::CompPoolBase* pool = fx.world.comp_pool_get(zecs::globalUid<test::Position>);
         REQUIRE(pool != nullptr);
         pool->compact();
 

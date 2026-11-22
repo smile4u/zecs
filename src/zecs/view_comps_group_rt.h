@@ -18,7 +18,7 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
 
     struct It
     {
-        using InternalIt = CompPool2Base::EntityIt;
+        using InternalIt = CompPoolBase::EntityIt;
 
         inline It() noexcept = default;
         inline It(InternalIt it_, const ViewCompGroupRt* view_) noexcept : it(it_), view(view_) { next_matched(); }
@@ -52,10 +52,10 @@ struct ZECS_EXPORT ViewCompGroupRt : private ViewCompGroupBase
     }
 
 private:
-    using InlinePools = std::array<CompPool2Base*, INLINE_CAPACITY>;
+    using InlinePools = std::array<CompPoolBase*, INLINE_CAPACITY>;
 
-    CompPool2Base** pool_data() noexcept;
-    CompPool2Base* const* pool_data() const noexcept;
+    CompPoolBase** pool_data() noexcept;
+    CompPoolBase* const* pool_data() const noexcept;
     std::variant<InlinePools, Pools> pools{InlinePools{}};
     size_t count = 0;
 };

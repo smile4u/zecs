@@ -16,16 +16,16 @@ namespace zecs
 {
 
 template<typename T>
-struct CompPool2 : public CompPool2Base
+struct CompPool : public CompPoolBase
 {
     static constexpr uint32_t PAGE_SIZE = CompConfig<T>::page_size;
     static_assert(std::has_single_bit(PAGE_SIZE), "page_size must be a power of two");
     static_assert(CompConfig<T>::stable_pointers || std::is_move_constructible_v<T>,
         "a component that can not be moved must set stable_pointers to true");
 
-    CompPool2() : CompPool2Base(globalUid<T>, &typeid(T), CompConfig<T>::stable_pointers) {}
+    CompPool() : CompPoolBase(globalUid<T>, &typeid(T), CompConfig<T>::stable_pointers) {}
 
-    ~CompPool2()
+    ~CompPool()
     {
         if constexpr (!is_tag_component<T>)
         {
@@ -121,7 +121,7 @@ private:
             comp_slot(di)->~T();
 
             if (from != di)
-                CompPool2::comp_slot_move(from, di);
+                CompPool::comp_slot_move(from, di);
         }
     }
 
@@ -170,7 +170,7 @@ private:
     {
         // A tag has no object: the pointer only says "the tag is here".
         if constexpr (is_tag_component<T>)
-            return reinterpret_cast<T*>(const_cast<CompPool2*>(this));
+            return reinterpret_cast<T*>(const_cast<CompPool*>(this));
         else
             return &pages[di >> PAGE_BITS][~di & PAGE_MASK];
     }

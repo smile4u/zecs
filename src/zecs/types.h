@@ -34,7 +34,7 @@
 namespace zecs
 {
 struct World;
-struct CompPool2Base;
+struct CompPoolBase;
 struct EventDequeBase;
 
 using EntityBase = uint32_t;
@@ -43,8 +43,8 @@ enum class Entity : EntityBase;
 using GTick = uint64_t;
 using DIndex = uint32_t; // index into a component pool's dense/sparse storage
 
-using CompPools = std::vector<std::unique_ptr<CompPool2Base>>;
-using CompPoolsPacked = std::vector<CompPool2Base*>;
+using CompPools = std::vector<std::unique_ptr<CompPoolBase>>;
+using CompPoolsPacked = std::vector<CompPoolBase*>;
 using EventDeques = std::vector<std::unique_ptr<EventDequeBase>>;
 using EventDequesPacked = std::vector<EventDequeBase*>;
 

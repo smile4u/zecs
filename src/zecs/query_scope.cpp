@@ -5,7 +5,7 @@
 namespace zecs
 {
 
-void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept
+void move_leading_pool_front(CompPoolBase** pools, size_t count) noexcept
 {
     if (count < 2 || pools[0] == nullptr)
         return;

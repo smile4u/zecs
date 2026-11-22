@@ -18,7 +18,7 @@ struct GroupTag
 };
 
 // A one-pool group has no view pointer in its iterator.
-static_assert(sizeof(zecs::ViewCompGroup2<GroupTag<0>>::It) == sizeof(zecs::CompPool2Base::EntityIt));
+static_assert(sizeof(zecs::ViewCompGroup<GroupTag<0>>::It) == sizeof(zecs::CompPoolBase::EntityIt));
 
 struct GroupFixture
 {
@@ -258,7 +258,7 @@ TEST_CASE("group view iterator semantics")
 TEST_CASE("typed group checks every pool with a non-first lead")
 {
     GroupFixture fx;
-    using View = zecs::ViewCompGroup2<GroupTag<0>, GroupTag<1>, GroupTag<2>>;
+    using View = zecs::ViewCompGroup<GroupTag<0>, GroupTag<1>, GroupTag<2>>;
 
     SUBCASE("both non-leading membership checks filter candidates")
     {

@@ -15,19 +15,19 @@ namespace zecs
 // Hot-path typed view. Pool count and membership checks are compile-time fixed;
 // runtime/debug groups have an independent implementation in view_comps_group_rt.h.
 template<typename... T>
-struct ViewCompGroup2 : private ViewCompGroupBase
+struct ViewCompGroup : private ViewCompGroupBase
 {
     static constexpr size_t POOL_COUNT = sizeof...(T);
     static_assert(POOL_COUNT > 0);
     static_assert(are_types_unique<T...>, "a component type is given two times");
-    using Pools = std::array<CompPool2Base*, POOL_COUNT>;
+    using Pools = std::array<CompPoolBase*, POOL_COUNT>;
 
     struct It
     {
-        using InternalIt = CompPool2Base::EntityIt;
+        using InternalIt = CompPoolBase::EntityIt;
 
         inline It() noexcept = default;
-        inline It(InternalIt it_, const ViewCompGroup2* view_) noexcept : it(it_)
+        inline It(InternalIt it_, const ViewCompGroup* view_) noexcept : it(it_)
         {
             if constexpr (POOL_COUNT > 1)
                 view = view_;
@@ -55,7 +55,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         // A group of one pool doesn't use the view, so this field is empty.
         // With the attribute an empty field takes no space. Without it
         // the iterator is 8 bytes bigger than the pool iterator.
-        ZECS_NO_UNIQUE_ADDRESS std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup2*> view{};
+        ZECS_NO_UNIQUE_ADDRESS std::conditional_t<POOL_COUNT == 1, NoView, const ViewCompGroup*> view{};
 
         ZECS_HOT_INLINE void next_matched() noexcept
         {
@@ -70,7 +70,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
         }
     };
 
-    ViewCompGroup2(Pools pools_) noexcept
+    ViewCompGroup(Pools pools_) noexcept
         : scope(pools_)
     {
         if constexpr (POOL_COUNT > 1)
@@ -84,7 +84,7 @@ struct ViewCompGroup2 : private ViewCompGroupBase
     // so the view must stay in place while they are used.
     inline It begin() const noexcept
     {
-        const CompPool2Base* lead = scope.pools[0];
+        const CompPoolBase* lead = scope.pools[0];
         if (lead == nullptr)
             return It();
 

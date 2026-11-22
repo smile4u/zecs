@@ -12,12 +12,12 @@
 
 namespace zecs
 {
-using CompPool2Signal = Gallant::Signal2<World&, Entity>;
+using CompPoolSignal = Gallant::Signal2<World&, Entity>;
 
 template<typename... T>
-struct ViewCompGroup2;
+struct ViewCompGroup;
 
-struct CompPool2Base
+struct CompPoolBase
 {
     // Links of the patch list. An empty slot of a pool with stable pointers
     // keeps the next empty slot in `next`: this is the free list.
@@ -51,9 +51,9 @@ struct CompPool2Base
         inline Entity operator*() const noexcept { return entity; }
 
     private:
-        friend struct CompPool2Base;
+        friend struct CompPoolBase;
         template<typename... T>
-        friend struct ViewCompGroup2;
+        friend struct ViewCompGroup;
 
         // Goes to the next slot, also when it is empty. Only for a group view:
         // it checks the entity of every slot anyway.
@@ -102,7 +102,7 @@ struct CompPool2Base
     {
         inline PatchIt() noexcept = default;
 
-        inline PatchIt(GTick since_, const CompPool2Base* pool_) noexcept
+        inline PatchIt(GTick since_, const CompPoolBase* pool_) noexcept
             : since(since_)
             , pool(pool_)
         {
@@ -169,13 +169,13 @@ struct CompPool2Base
         GTick since = 0;
         GTick cur_tick = GTick_INVALID; // tick of the current node; starts above any real tick
         GTick next_tick = GTick_INVALID; // tick of `next`: shows later if the node is still in the slot
-        const CompPool2Base* pool = nullptr;
+        const CompPoolBase* pool = nullptr;
         DIndex head = DIndex_NONE;
         DIndex next = DIndex_NONE; // link of the current node, saved before the loop body runs
     };
 
-    ZECS_EXPORT CompPool2Base(GUid guid_, const std::type_info* type_, bool stable_pointers_);
-    virtual ~CompPool2Base() = default;
+    ZECS_EXPORT CompPoolBase(GUid guid_, const std::type_info* type_, bool stable_pointers_);
+    virtual ~CompPoolBase() = default;
 
     constexpr bool empty() const noexcept;
     constexpr size_t size() const noexcept;
@@ -187,7 +187,7 @@ struct CompPool2Base
 
     // Removes the component of the entity. False if the entity has none.
     // The code is the same for all component types, so it is in the .cpp.
-    // Only the work with the component object is in CompPool2<T>
+    // Only the work with the component object is in CompPool<T>
     // (see comp_slot_rem).
     ZECS_EXPORT bool remove(Entity e) noexcept;
 
@@ -211,7 +211,7 @@ struct CompPool2Base
     inline PatchIt patches_end() const noexcept { return PatchIt(); }
     inline bool patch_empty(GTick since) const noexcept { return (patch_head != DIndex_NONE) ? ticks[patch_head] < since : true; }
 
-    // The component type of this pool. Set once by CompPool2<T>.
+    // The component type of this pool. Set once by CompPool<T>.
     const GUid guid;
     const std::type_info* const type;
     // See stable_pointers in config.h.
@@ -224,9 +224,9 @@ struct CompPool2Base
     //     It can change components of other types: for example,
     //     on_removed can remove the other components of the entity.
     //   - A handler must not connect or disconnect handlers of this pool.
-    CompPool2Signal on_added;
-    CompPool2Signal on_removed;
-    CompPool2Signal on_patched;
+    CompPoolSignal on_added;
+    CompPoolSignal on_removed;
+    CompPoolSignal on_patched;
 
     // True while a signal of this pool is calling its handlers.
     // Use it only in asserts: without ZECS_DEBUG it is always false.
@@ -253,7 +253,7 @@ protected:
     ZECS_EXPORT void patched_emit(Entity e) noexcept;
 
     // Calls the handlers of a signal of this pool.
-    inline void signal_emit(const CompPool2Signal& signal, Entity e) noexcept;
+    inline void signal_emit(const CompPoolSignal& signal, Entity e) noexcept;
 
     // For remove(): destroy the component in slot `di`. If `from` is
     // another slot, move its component into `di` after that.
@@ -283,7 +283,7 @@ protected:
     uint32_t signal_depth = 0;
 };
 
-inline void CompPool2Base::signal_emit(const CompPool2Signal& signal, Entity e) noexcept
+inline void CompPoolBase::signal_emit(const CompPoolSignal& signal, Entity e) noexcept
 {
 #ifdef ZECS_DEBUG
     ++signal_depth;
@@ -296,7 +296,7 @@ inline void CompPool2Base::signal_emit(const CompPool2Signal& signal, Entity e) 
 #endif
 }
 
-constexpr DIndex CompPool2Base::dense_last() const noexcept
+constexpr DIndex CompPoolBase::dense_last() const noexcept
 {
     // Without stable pointers the components are in the slots from 1 to
     // dense_count. `dense` can be longer: the slots after them are empty
@@ -304,17 +304,17 @@ constexpr DIndex CompPool2Base::dense_last() const noexcept
     return static_cast<DIndex>(stable_pointers ? dense.size() - 1 : dense_count);
 }
 
-constexpr bool CompPool2Base::empty() const noexcept
+constexpr bool CompPoolBase::empty() const noexcept
 {
     return dense_count == 0;
 }
 
-constexpr size_t CompPool2Base::size() const noexcept
+constexpr size_t CompPoolBase::size() const noexcept
 {
     return dense_count;
 }
 
-inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
+inline void CompPoolBase::patch(Entity e, GTick* tick) noexcept
 {
     const DIndex di = dense_index_get(e);
     if (di == DIndex_NONE)
@@ -328,29 +328,29 @@ inline void CompPool2Base::patch(Entity e, GTick* tick) noexcept
         patched_emit(e);
 }
 
-inline GTick CompPool2Base::patch_get(Entity e) const noexcept
+inline GTick CompPoolBase::patch_get(Entity e) const noexcept
 {
     const DIndex di = dense_index_get(e);
     return ticks[di];
 }
 
-constexpr bool CompPool2Base::contains(Entity e) const noexcept
+constexpr bool CompPoolBase::contains(Entity e) const noexcept
 {
     return (dense_index_get(e) != DIndex_NONE);
 }
 
-constexpr DIndex CompPool2Base::sparse_index_get(Entity e) const noexcept
+constexpr DIndex CompPoolBase::sparse_index_get(Entity e) const noexcept
 {
     return entity_to_index(e);
 }
 
-constexpr DIndex CompPool2Base::sparse_cell_make(Entity e, DIndex di) const noexcept
+constexpr DIndex CompPoolBase::sparse_cell_make(Entity e, DIndex di) const noexcept
 {
     // Low bits: the dense index. High bits: the generation of the entity.
     return di | (static_cast<DIndex>(e) & Entity_GEN_MASK);
 }
 
-constexpr DIndex CompPool2Base::dense_index_get(Entity e) const noexcept
+constexpr DIndex CompPoolBase::dense_index_get(Entity e) const noexcept
 {
     const DIndex si = sparse_index_get(e);
     if (si >= sparse_size)

@@ -15,7 +15,7 @@ namespace zecs
 // A missing pool (nullptr) goes first too. A view goes over the first pool,
 // so its pass is the shortest.
 // We count dense slots, not components: a pass visits empty slots too.
-ZECS_EXPORT void move_leading_pool_front(CompPool2Base** pools, size_t count) noexcept;
+ZECS_EXPORT void move_leading_pool_front(CompPoolBase** pools, size_t count) noexcept;
 
 // N pools and the checks of an entity in all of them at once.
 // It knows only the number of the component types, not the types:
@@ -24,12 +24,12 @@ ZECS_EXPORT void move_leading_pool_front(CompPool2Base** pools, size_t count) no
 template<size_t N>
 struct QueryScopeBase
 {
-    using Pools = std::array<CompPool2Base*, N>;
+    using Pools = std::array<CompPoolBase*, N>;
 
 protected:
     friend struct World;
     template<typename... T>
-    friend struct ViewCompGroup2;
+    friend struct ViewCompGroup;
 
     // The checks don't test for nullptr. World::query_scope() makes
     // the pools that are missing. A view tests its pools itself.

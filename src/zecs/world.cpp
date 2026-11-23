@@ -74,11 +74,11 @@ bool World::entity_remove(Entity e)
     const EntityBase gen = static_cast<EntityBase>(e) & Entity_GEN_MASK;
     entity_count--;
 
-    // This was the last generation of the index. The next one would be 0
-    // again, and a very old ID would be equal to the new entity. So the
-    // index doesn't go to the free list: it is never used again.
+    // This was the last generation of the index. The next one is
+    // Entity_GEN_NONE, and no entity gets it. So the index doesn't go
+    // to the free list: it is never used again.
     // Entity_INVALID in the slot isn't equal to any ID.
-    if (gen == Entity_GEN_MASK) [[unlikely]]
+    if (gen == Entity_GEN_MAX) [[unlikely]]
     {
         entities[eindex] = Entity_INVALID;
         return true;

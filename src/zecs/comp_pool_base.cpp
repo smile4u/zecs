@@ -31,10 +31,10 @@ DIndex CompPoolBase::dense_add(Entity e, GTick tick) noexcept
     if (si >= sparse.size())
     {
         sparse_size = si + 1;
-        sparse.resize(sparse_size, DIndex_NONE);
+        sparse.resize(sparse_size, SIndex_NONE);
     }
 
-    assert(sparse[si] == DIndex_NONE);
+    assert(sparse[si] == SIndex_NONE);
 
     // A new component is the newest one: it becomes the head of the patch list.
     const PatchNode links{ patch_head, DIndex_NONE };
@@ -107,7 +107,7 @@ void CompPoolBase::dense_rem(DIndex di, DIndex empty) noexcept
     assert(di != DIndex_NONE && di < dense.size());
     assert(dense_count > 0);
 
-    sparse[sparse_index_get(dense[di])] = DIndex_NONE;
+    sparse[sparse_index_get(dense[di])] = SIndex_NONE;
     patch_rem(di);
 
     if (empty != di)
@@ -175,7 +175,7 @@ void CompPoolBase::compact() noexcept
     // so a pool that can't move its components gets it too.
     // TODO: empty cells in the middle stay. To free them sparse[] must be
     // made of pages. That adds one memory read to every search: measure first.
-    while (sparse_size > 0 && sparse[sparse_size - 1] == DIndex_NONE) --sparse_size;
+    while (sparse_size > 0 && sparse[sparse_size - 1] == SIndex_NONE) --sparse_size;
     sparse.resize(sparse_size);
     sparse.shrink_to_fit();
 

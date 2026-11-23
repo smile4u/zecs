@@ -61,11 +61,14 @@ constexpr Entity Entity_INVALID = static_cast<Entity>(EntityBase_INVALID);
 // Each index that is never used again makes this number smaller by one.
 constexpr uint32_t Entity_INDEX_BITS = 20;
 constexpr EntityBase Entity_INDEX_MASK = (EntityBase(1) << Entity_INDEX_BITS) - 1;
-constexpr EntityBase Entity_GEN_MASK = ~Entity_INDEX_MASK;
 constexpr EntityBase Entity_INDEX_NONE = Entity_INDEX_MASK; // no real entity has this index
+constexpr EntityBase Entity_GEN_MASK = ~Entity_INDEX_MASK;
+constexpr EntityBase Entity_GEN_NONE = Entity_GEN_MASK; // no real entity has this generation
+constexpr EntityBase Entity_GEN_MAX = Entity_GEN_NONE - (Entity_INDEX_MASK + 1); // the last generation of an index
 
 constexpr DIndex DIndex_NONE = 0; // 0 means "no dense slot" (used as permanent guard)
 constexpr DIndex DIndex_FIRST = 1; // first real dense slot
+constexpr DIndex SIndex_NONE = Entity_GEN_NONE; // an empty cell of sparse[]: no dense slot, and no entity has its generation
 constexpr size_t Size_INVALID = std::numeric_limits<size_t>::max();
 
 struct TickContext

@@ -154,7 +154,7 @@ compile.
 ## Limits
 
 - No more than 1 048 575 entities can live in a world at the same time.
-  An entity index can be used 4096 times, so a world can make about
+  An entity index can be used 4095 times, so a world can make about
   4 billion entities in its life. After that `entity_add` returns
   `Entity_INVALID`.
 - The type ID of a component (`zecs::GUid`) comes from the name of the type

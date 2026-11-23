@@ -88,6 +88,9 @@ TEST_CASE("entity_reuse")
 {
     zecs::World world;
 
+    // The number of generations of one index: from 0 to Entity_GEN_MAX.
+    const int generations = static_cast<int>(zecs::Entity_GEN_MAX >> zecs::Entity_INDEX_BITS) + 1;
+
     SUBCASE("new entity takes the index of a removed one, with a new ID")
     {
         const zecs::Entity old_entity = world.entity_add();
@@ -120,9 +123,8 @@ TEST_CASE("entity_reuse")
 
     SUBCASE("indices do not grow when entities are added and removed in turn")
     {
-        // An index has this number of generations. After the last one
-        // a new entity takes another index: there is a test for it below.
-        const int generations = 1 << (32 - zecs::Entity_INDEX_BITS);
+        // After the last generation a new entity takes another index:
+        // there is a test for it below.
         for (int i = 0; i < generations; ++i)
         {
             const zecs::Entity e = world.entity_add();
@@ -190,7 +192,6 @@ TEST_CASE("entity_reuse")
         world.comp_add<test::Position>(first);
 
         // Every generation of the index is used one time.
-        const int generations = 1 << (32 - zecs::Entity_INDEX_BITS);
         zecs::Entity e = first;
         for (int i = 1; i < generations; ++i)
         {
@@ -198,9 +199,11 @@ TEST_CASE("entity_reuse")
             e = world.entity_add();
             REQUIRE(zecs::entity_to_index(e) == index);
             REQUIRE(e != first);
+            REQUIRE((static_cast<zecs::EntityBase>(e) & zecs::Entity_GEN_MASK) != zecs::Entity_GEN_NONE);
         }
 
         // `e` has the last generation. A new entity takes another index.
+        CHECK((static_cast<zecs::EntityBase>(e) & zecs::Entity_GEN_MASK) == zecs::Entity_GEN_MAX);
         world.comp_add<test::Position>(e);
         CHECK(world.entity_remove(e));
 
@@ -221,6 +224,25 @@ TEST_CASE("entity_reuse")
         CHECK(entities[0] == world.root());
         CHECK(entities[1] == next);
         CHECK(world.counters_get().entities == 2);
+    }
+
+    SUBCASE("a pool with an empty cell has no entity of any generation")
+    {
+        // `other` has a bigger index, so its pool has a cell for the index
+        // of `e` too. This cell stays empty.
+        zecs::Entity e = world.entity_add();
+        const zecs::Entity other = world.entity_add();
+        world.comp_add<test::Velocity>(other);
+
+        const auto scope = world.query_scope<test::Velocity>();
+        for (int i = 0; i < generations; ++i)
+        {
+            REQUIRE_FALSE(world.query_has_all(e, scope));
+            REQUIRE(world.comp_get<test::Velocity>(e) == nullptr);
+
+            world.entity_remove(e);
+            e = world.entity_add();
+        }
     }
 
     SUBCASE("entity_add returns Entity_INVALID when no index is left")

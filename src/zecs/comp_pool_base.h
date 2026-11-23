@@ -85,6 +85,11 @@ struct CompPoolBase
         // with many pools is slower.
         size_t index = DIndex_NONE;
         const Dense* dense = nullptr;
+        // These 4 bytes make the entity the last field with no unused bytes
+        // after it. With unused bytes after the entity MSVC writes 4 bytes
+        // of it and reads 8 bytes back. Such a read waits for the write,
+        // and a view loop is up to 4 times slower.
+        uint32_t padding = 0;
         // The entity of the current slot. operator* returns it and doesn't
         // read the slot again, so view loops are faster.
         Entity entity = Entity_INVALID;
@@ -337,7 +342,15 @@ inline GTick CompPoolBase::patch_get(Entity e) const noexcept
 
 constexpr bool CompPoolBase::contains(Entity e) const noexcept
 {
-    return (dense_index_get(e) != DIndex_NONE);
+    const DIndex si = sparse_index_get(e);
+    if (si >= sparse_size)
+        return false;
+
+    // The high bits are 0 only when the cell has the generation of the entity.
+    // An empty cell has Entity_GEN_NONE, so its high bits are never 0.
+    // Entity_INVALID has this generation too, but its index is never
+    // smaller than sparse_size.
+    return (sparse[si] ^ static_cast<DIndex>(e)) <= Entity_INDEX_MASK;
 }
 
 constexpr DIndex CompPoolBase::sparse_index_get(Entity e) const noexcept
@@ -359,7 +372,8 @@ constexpr DIndex CompPoolBase::dense_index_get(Entity e) const noexcept
 
     // sparse[] keeps the dense index together with the generation of the entity.
     // The same generation in the ID makes the high bits 0, and the dense index is left.
-    // An old ID gives a number that is too big. An empty cell gives 0 or a big number.
+    // An old ID gives a number that is too big. An empty cell too:
+    // it has Entity_GEN_NONE.
     const DIndex di = sparse[si] ^ (static_cast<DIndex>(e) & Entity_GEN_MASK);
     return (di <= Entity_INDEX_MASK) ? di : DIndex_NONE;
 }

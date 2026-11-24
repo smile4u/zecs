@@ -88,7 +88,7 @@ struct CompPoolBase
         // These 4 bytes make the entity the last field with no unused bytes
         // after it. With unused bytes after the entity MSVC writes 4 bytes
         // of it and reads 8 bytes back. Such a read waits for the write,
-        // and a view loop is up to 4 times slower.
+        // and a view loop is much slower.
         uint32_t padding = 0;
         // The entity of the current slot. operator* returns it and doesn't
         // read the slot again, so view loops are faster.
@@ -349,7 +349,8 @@ constexpr bool CompPoolBase::contains(Entity e) const noexcept
     // The high bits are 0 only when the cell has the generation of the entity.
     // An empty cell has Entity_GEN_NONE, so its high bits are never 0.
     // Entity_INVALID has this generation too, but its index is never
-    // smaller than sparse_size.
+    // smaller than sparse_size. The world makes no other ID with this
+    // generation: see the contract of the Entity API in world.h.
     return (sparse[si] ^ static_cast<DIndex>(e)) <= Entity_INDEX_MASK;
 }
 

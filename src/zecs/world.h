@@ -43,8 +43,11 @@ struct ZECS_EXPORT World
     // Entity API
     // ------------------------------------------
     // Contract: comp_add and comp_get_or_add need a valid entity.
-    // It is checked by assert. Other functions take any ID: for a removed
-    // entity they do nothing and return nullptr or false.
+    // It is checked by assert. Other functions take any ID that this world
+    // made, and Entity_INVALID: for a removed entity they do nothing and
+    // return nullptr or false. An ID that no world made (for example,
+    // a number read from a file) must not be used: check it with
+    // entity_is_valid() first.
 
     Entity root();
 

@@ -151,6 +151,17 @@ compile.
 
 **Threads.** A world has no locks. Use one world from one thread at a time.
 
+## Benchmark
+
+[zecs_bench](https://github.com/smile4u/zecs_bench) compares ZECS with
+[EnTT](https://github.com/skypjack/entt). It has the code of every test,
+the results and the steps to run it on your machine.
+
+![zecs vs entt on macOS](https://raw.githubusercontent.com/smile4u/zecs_bench/main/results/charts/macos.svg)
+
+The bars show how much more (+) or less (-) time zecs takes than entt.
+Left of 0 zecs is faster. The results are from macOS on Apple M1 Max.
+
 ## Limits
 
 - No more than 1 048 575 entities can live in a world at the same time.
@@ -175,4 +186,6 @@ It includes [Signals](https://github.com/pbhogan/Signals) by Patrick Hogan
 
 ## Thanks
 
-Thanks to [EnTT](https://github.com/skypjack/entt) for the inspiration.
+Thanks to [EnTT](https://github.com/skypjack/entt) and its author Michele Caini ([@skypjack](https://github.com/skypjack)) for the inspiration.
+
+Thanks to [@salikq](https://github.com/salikq), my personal static analyzer for ideas.

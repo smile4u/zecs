@@ -1,7 +1,7 @@
 # ZECS
 
 [![CI](https://github.com/smile4u/zecs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smile4u/zecs/actions/workflows/ci.yml)
-[![License: MIT](.github/badges/license.svg)](LICENSE)
+[![License: Apache 2.0](.github/badges/license.svg)](LICENSE)
 [![C++20](.github/badges/cpp.svg)](https://en.cppreference.com/w/cpp/20)
 
 Small and powerful C++20 entity component system (ECS) with built-in component change tracking.
@@ -166,7 +166,7 @@ compile.
 
 ## License
 
-ZECS is under the [MIT license](LICENSE).
+ZECS is under the [Apache License 2.0](LICENSE).
 
 It includes [Signals](https://github.com/pbhogan/Signals) by Patrick Hogan
 (MIT) with FastDelegate by Don Clugston (public domain), see

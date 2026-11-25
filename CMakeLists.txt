@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(zecs VERSION 0.1.0 LANGUAGES CXX)
+project(zecs VERSION 0.1.1 LANGUAGES CXX)
 
 # PROJECT_IS_TOP_LEVEL is false when another project adds ZECS with
 # add_subdirectory(). Then the tests and the install rules are off by default.
